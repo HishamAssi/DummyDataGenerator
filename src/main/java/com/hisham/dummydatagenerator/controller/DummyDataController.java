@@ -25,7 +25,7 @@ public class DummyDataController {
                                @RequestParam(defaultValue = "100") int rows) {
 
         TableMetadata metadata = introspector.getTableMetadata(schema, table);
-        List<Map<String, Object>> dummyRows = dummyDataService.generateRows(metadata, rows);
+        List<Map<String, Object>> dummyRows = dummyDataService.generateRows(metadata, rows, schema);
         dummyDataService.insertRows(schema, table, dummyRows);
 
         return "Inserted " + rows + " dummy rows into " + schema + "." + table;
