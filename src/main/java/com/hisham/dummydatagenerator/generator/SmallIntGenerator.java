@@ -2,9 +2,10 @@ package com.hisham.dummydatagenerator.generator;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-public class IntegerGenerator implements ColumnDataGenerator {
+public class SmallIntGenerator implements ColumnDataGenerator {
     @Override
     public Object generate() {
-        return ThreadLocalRandom.current().nextInt(-2147483647, 2147483647);
+        return (short) ThreadLocalRandom.current().nextInt(-32768, 32767);
     }
 }
+
