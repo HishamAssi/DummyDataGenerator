@@ -28,7 +28,7 @@ public class DummyDataService {
             Map<String, Object> row = new HashMap<>();
 
             for (ColumnMetadata column : metadata.getColumns()) {
-                ColumnDataGenerator generator = DataGeneratorFactory.getGenerator(column.getDataType());
+                ColumnDataGenerator generator = DataGeneratorFactory.getGenerator(column);
                 Object value = generator.generate();
                 row.put(column.getColumnName(), value);
             }

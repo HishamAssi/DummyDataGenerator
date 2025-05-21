@@ -23,18 +23,24 @@ public class PostgresDatabaseIntrospector implements DatabaseIntrospector {
     public TableMetadata getTableMetadata(String schema, String tableName) {
         try (Connection conn = dataSource.getConnection()) {
             DatabaseMetaData metaData = conn.getMetaData();
+
+            Set<String> primaryKeys = getPrimaryKeys(schema, tableName, metaData);
             ResultSet columns = metaData.getColumns(null, schema, tableName, null);
             List<ColumnMetadata> columnMetadataList = new ArrayList<>();
 
-            Set<String> primaryKeys = getPrimaryKeys(schema, tableName, metaData);
-
             while (columns.next()) {
                 String columnName = columns.getString("COLUMN_NAME");
-                String typeName = columns.getString("TYPE_NAME");
+                String typeName = columns.getString("TYPE_NAME").toLowerCase();
                 boolean nullable = columns.getInt("NULLABLE") == DatabaseMetaData.columnNullable;
                 boolean isPrimaryKey = primaryKeys.contains(columnName);
-                columnMetadataList.add(new ColumnMetadata(columnName, typeName, nullable, isPrimaryKey));
+
+                int columnSize = columns.getInt("COLUMN_SIZE");          // e.g., varchar(255) → 255
+                int decimalDigits = columns.getInt("DECIMAL_DIGITS");    // e.g., numeric(10,2) → 2
+
+                columnMetadataList.add(new ColumnMetadata(columnName, typeName, nullable, isPrimaryKey, columnSize,
+                        decimalDigits));
             }
+
 
             return new TableMetadata(tableName, columnMetadataList);
 
