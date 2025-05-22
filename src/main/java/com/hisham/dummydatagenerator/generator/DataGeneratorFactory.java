@@ -7,6 +7,8 @@ import java.util.Map;
 
 public class DataGeneratorFactory {
 
+    private final static int smallInt = 32768;
+    private final static int normInt = 2147483647;
     /*
     generatorMap.put("int2", new SmallIntGenerator());
 generatorMap.put("int4", new IntegerGenerator());
@@ -31,11 +33,11 @@ generatorMap.put("bool", new BooleanGenerator());
         return switch (type) {
             case "varchar" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 50);
             case "numeric" -> new NumericGenerator(column.getColumnSize(), column.getDecimalDigits());
-            case "int2" -> new SmallIntGenerator();
-            case "int4" -> new IntegerGenerator();
+            case "int2" -> new IntegerGenerator(-smallInt, smallInt);
+            case "int4", "money"  -> new IntegerGenerator(-normInt, normInt);
             case "int8" -> new BigIntGenerator();
-            case "money" -> new MoneyGenerator();
-            case "timestamptz" -> new TimestampTzGenerator();
+            case "timestamptz" -> new TimestampGenerator();
+            case "timestamp" -> new TimestampGenerator();
             case "bool" -> new BooleanGenerator();
             case "bytea" -> new ByteaGenerator();
             case "date" -> new DateGenerator();
