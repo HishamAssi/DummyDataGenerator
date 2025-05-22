@@ -6,11 +6,17 @@ public class ColumnMetadata {
     private boolean nullable;
     private boolean primaryKey;
 
-    public ColumnMetadata(String columnName, String dataType, boolean nullable, boolean primaryKey) {
+    private Integer columnSize;     // for varchar, char, numeric
+    private Integer decimalDigits;  // for numeric
+
+    public ColumnMetadata(String columnName, String dataType, boolean nullable, boolean primaryKey,
+                          Integer columnSize, Integer decimalDigits) {
         this.columnName = columnName;
         this.dataType = dataType;
         this.nullable = nullable;
         this.primaryKey = primaryKey;
+        this.columnSize = columnSize;
+        this.decimalDigits = decimalDigits;
     }
 
     // Getters and setters
@@ -29,4 +35,9 @@ public class ColumnMetadata {
     public boolean isPrimaryKey() {
         return primaryKey;
     }
+
+    public Integer getColumnSize() { return columnSize; }
+
+    public Integer getDecimalDigits() { return decimalDigits; }
+
 }

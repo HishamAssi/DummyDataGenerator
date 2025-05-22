@@ -2,6 +2,8 @@ package com.hisham.dummydatagenerator.generator;
 
 import com.hisham.dummydatagenerator.schema.TableMetadata;
 import com.hisham.dummydatagenerator.schema.ColumnMetadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -11,7 +13,13 @@ import java.util.*;
 @Service
 public class DummyDataService {
 
+    private static final Logger logger = LoggerFactory.getLogger(DummyDataService.class);
+
     public List<Map<String, Object>> generateRows(TableMetadata metadata, int rowCount, String schema) {
+
+        logger.info("Generating rows for table {}", metadata.getTableName());
+        logger.debug("Row schema: {}", metadata.getColumns());
+
         List<Map<String, Object>> rows = new ArrayList<>();
 
         String pkColumn = metadata.getColumns().stream()
@@ -28,8 +36,10 @@ public class DummyDataService {
             Map<String, Object> row = new HashMap<>();
 
             for (ColumnMetadata column : metadata.getColumns()) {
-                ColumnDataGenerator generator = DataGeneratorFactory.getGenerator(column.getDataType());
+                logger.debug("Generating column {} for row {}", column.getColumnName(), generated);
+                ColumnDataGenerator generator = DataGeneratorFactory.getGenerator(column);
                 Object value = generator.generate();
+                logger.debug("Generated value: {}", value);
                 row.put(column.getColumnName(), value);
             }
 
@@ -51,6 +61,9 @@ public class DummyDataService {
     private JdbcTemplate jdbcTemplate;
 
     public void insertRows(String schema, String tableName, List<Map<String, Object>> rows) {
+
+        logger.debug("Inserting rows into table: {}", tableName);
+
         if (rows.isEmpty()) return;
 
         String columns = String.join(", ", rows.get(0).keySet());

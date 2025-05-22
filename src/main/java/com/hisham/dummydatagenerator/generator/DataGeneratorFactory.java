@@ -1,22 +1,48 @@
 package com.hisham.dummydatagenerator.generator;
 
+import com.hisham.dummydatagenerator.schema.ColumnMetadata;
+
 import java.util.HashMap;
 import java.util.Map;
 
 public class DataGeneratorFactory {
 
-    private static final Map<String, ColumnDataGenerator> generatorMap = new HashMap<>();
+    private final static int smallInt = 32768;
+    private final static int normInt = 2147483647;
+    /*
+    generatorMap.put("int2", new SmallIntGenerator());
+generatorMap.put("int4", new IntegerGenerator());
+generatorMap.put("int8", new BigIntGenerator());
+generatorMap.put("numeric", new BigDecimalGenerator());
+generatorMap.put("money", new MoneyGenerator());
+generatorMap.put("char", new FixedLengthStringGenerator(10));
+generatorMap.put("varchar", new StringGenerator());
+generatorMap.put("text", new LongTextGenerator());
+generatorMap.put("bytea", new ByteaGenerator());
+generatorMap.put("date", new DateGenerator());
+generatorMap.put("time", new TimeGenerator());
+generatorMap.put("timestamp", new TimestampGenerator());
+generatorMap.put("timestamptz", new TimestampTzGenerator());
+generatorMap.put("interval", new IntervalGenerator());
+generatorMap.put("bool", new BooleanGenerator());
+*/
 
-    static {
-        generatorMap.put("varchar", new StringGenerator());
-        generatorMap.put("text", new StringGenerator());
-        generatorMap.put("int4", new IntegerGenerator()); // PostgreSQL-specific
-        generatorMap.put("integer", new IntegerGenerator());
-        generatorMap.put("date", new DateGenerator());
-        // add more mappings as needed
-    }
+    public static ColumnDataGenerator getGenerator(ColumnMetadata column) {
+        String type = column.getDataType().toLowerCase();
 
-    public static ColumnDataGenerator getGenerator(String sqlType) {
-        return generatorMap.getOrDefault(sqlType.toLowerCase(), () -> null);
+        return switch (type) {
+            case "varchar" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 50);
+            case "numeric" -> new NumericGenerator(column.getColumnSize(), column.getDecimalDigits());
+            case "int2" -> new IntegerGenerator(-smallInt, smallInt);
+            case "int4", "money"  -> new IntegerGenerator(-normInt, normInt);
+            case "int8" -> new BigIntGenerator();
+            case "timestamptz" -> new TimestampGenerator();
+            case "timestamp" -> new TimestampGenerator();
+            case "bool" -> new BooleanGenerator();
+            case "bytea" -> new ByteaGenerator();
+            case "date" -> new DateGenerator();
+            // Add other mappings here
+            default -> () -> null;
+        };
     }
 }
