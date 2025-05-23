@@ -9,6 +9,7 @@ public class DataGeneratorFactory {
 
     private final static int smallInt = 32768;
     private final static int normInt = 2147483647;
+    private final static int textSize = normInt - 1;
     /*
     generatorMap.put("int2", new SmallIntGenerator());
 generatorMap.put("int4", new IntegerGenerator());
@@ -32,6 +33,7 @@ generatorMap.put("bool", new BooleanGenerator());
 
         return switch (type) {
             case "varchar" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 50);
+            case "text" -> new VarcharGenerator(textSize);
             case "numeric" -> new NumericGenerator(column.getColumnSize(), column.getDecimalDigits());
             case "int2" -> new IntegerGenerator(-smallInt, smallInt);
             case "int4", "money", "int"  -> new IntegerGenerator(-normInt, normInt);
