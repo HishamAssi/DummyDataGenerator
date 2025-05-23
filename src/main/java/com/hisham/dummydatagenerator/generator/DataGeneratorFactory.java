@@ -34,7 +34,7 @@ generatorMap.put("bool", new BooleanGenerator());
             case "varchar" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 50);
             case "numeric" -> new NumericGenerator(column.getColumnSize(), column.getDecimalDigits());
             case "int2" -> new IntegerGenerator(-smallInt, smallInt);
-            case "int4", "money"  -> new IntegerGenerator(-normInt, normInt);
+            case "int4", "money", "int"  -> new IntegerGenerator(-normInt, normInt);
             case "int8" -> new BigIntGenerator();
             case "timestamptz" -> new TimestampGenerator();
             case "timestamp" -> new TimestampGenerator();

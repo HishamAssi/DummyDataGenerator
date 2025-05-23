@@ -6,8 +6,6 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class TimestampGenerator implements ColumnDataGenerator {
 
-
-
     @Override
     public Object generate() {
         return OffsetDateTime.now(ZoneOffset.UTC).minusDays(ThreadLocalRandom.current().nextInt(0, 365));

@@ -14,6 +14,6 @@ public class VarcharGenerator implements ColumnDataGenerator {
     public Object generate() {
         String base = "val_" + UUID.randomUUID().toString().replace("-", "");
         return base.substring(0, Math.min(base.length(), ThreadLocalRandom.current().nextInt(1,
-                maxLength)));
+                maxLength+1)));
     }
 }
