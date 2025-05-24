@@ -15,4 +15,7 @@ public interface DatabaseConnector {
     void insertRows(DataSource dataSource, String schema, String tableName, TableMetadata metadata,
                     List<Map<String, Object>> rows);
 
+    List<String> getAllTableNames(DataSource dataSource, String schema);
+
+
 }

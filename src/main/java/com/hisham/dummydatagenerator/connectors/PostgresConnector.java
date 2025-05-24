@@ -106,4 +106,21 @@ public class PostgresConnector implements DatabaseConnector {
             throw new RuntimeException("Insert failed", e);
         }
     }
+
+    public List<String> getAllTableNames(DataSource ds, String schema) {
+        List<String> tables = new ArrayList<>();
+
+        try (Connection conn = ds.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            ResultSet rs = meta.getTables(null, schema, null, new String[] { "TABLE" });
+            while (rs.next()) {
+                tables.add(rs.getString("TABLE_NAME"));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to fetch tables for schema: " + schema, e);
+        }
+
+        return tables;
+    }
+
 }
