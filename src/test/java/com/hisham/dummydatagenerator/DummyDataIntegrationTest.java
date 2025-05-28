@@ -1,7 +1,7 @@
 package com.hisham.dummydatagenerator;
 
 import com.hisham.dummydatagenerator.controller.UniversalConnectorController;
-import com.hisham.dummydatagenerator.connectors.SqlServerConnector;
+import com.hisham.dummydatagenerator.connectors.RelationalDatabaseConnector;
 import com.hisham.dummydatagenerator.dto.ConnectionRequest;
 import com.hisham.dummydatagenerator.dto.ConnectionRequestAll;
 import com.hisham.dummydatagenerator.schema.TableMetadata;
@@ -32,7 +32,7 @@ public class DummyDataIntegrationTest {
     private UniversalConnectorController universalConnectorController;
 
     @Autowired
-    private SqlServerConnector sqlServerConnector;
+    private RelationalDatabaseConnector relationalDatabaseConnector;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -48,7 +48,7 @@ public class DummyDataIntegrationTest {
     void setUp() {
         
         
-        // Create test table using SqlServerConnector
+        // Create test table using RelationalDatabaseConnector
         String createTableSQL = """
             IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '%s')
             BEGIN
@@ -62,7 +62,7 @@ public class DummyDataIntegrationTest {
             END
             """.formatted(TEST_TABLE, TEST_SCHEMA, TEST_TABLE);
         
-        sqlServerConnector.createTable(dataSource, createTableSQL, TEST_TABLE, TEST_SCHEMA);
+        relationalDatabaseConnector.createTable(dataSource, createTableSQL, TEST_TABLE, TEST_SCHEMA);
     }
 
     @Test
@@ -122,7 +122,7 @@ public class DummyDataIntegrationTest {
 
             jdbcTemplate.execute("DELETE FROM %s.%s_2".formatted(TEST_SCHEMA, TEST_TABLE));
         
-        sqlServerConnector.createTable(dataSource, createTableSQL, "TEST_TABLE_2", TEST_SCHEMA);
+        relationalDatabaseConnector.createTable(dataSource, createTableSQL, "TEST_TABLE_2", TEST_SCHEMA);
 
         // Create connection request for all tables
         ConnectionRequestAll request = new ConnectionRequestAll();
