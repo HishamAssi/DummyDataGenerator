@@ -12,20 +12,18 @@ import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
 
-
 @Component
-public class PostgresConnector implements DatabaseConnector {
+public class RelationalDatabaseConnector implements DatabaseConnector {
 
-    private static final Logger logger = LoggerFactory.getLogger(PostgresConnector.class);
-
-    public Connection conn;
+    private static final Logger logger = LoggerFactory.getLogger(RelationalDatabaseConnector.class);
+    private static final Set<String> SUPPORTED_DB_TYPES = Set.of("postgresql", "sqlserver");
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Override
     public boolean supports(String dbType) {
-        return dbType.equalsIgnoreCase("postgresql");
+        return SUPPORTED_DB_TYPES.contains(dbType.toLowerCase());
     }
 
     @Override
@@ -34,7 +32,6 @@ public class PostgresConnector implements DatabaseConnector {
         Set<String> primaryKeys = new HashSet<>();
 
         try (Connection conn = dataSource.getConnection()) {
-
             logger.debug("Fetching metadata.");
 
             DatabaseMetaData meta = conn.getMetaData();
@@ -66,7 +63,7 @@ public class PostgresConnector implements DatabaseConnector {
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Error introspecting Postgres table", e);
+            throw new RuntimeException("Error introspecting table", e);
         }
 
         return new TableMetadata(tableName, columns);
@@ -107,6 +104,7 @@ public class PostgresConnector implements DatabaseConnector {
         }
     }
 
+    @Override
     public List<String> getAllTableNames(DataSource ds, String schema) {
         List<String> tables = new ArrayList<>();
 
@@ -123,12 +121,41 @@ public class PostgresConnector implements DatabaseConnector {
         return tables;
     }
 
+    @Override
     public void createTable(DataSource dataSource, String statement, String tableName, String schema) {
         try (Connection conn = dataSource.getConnection()) {
-            conn.createStatement().execute(statement);
+            // Check if table exists
+            if (tableExists(conn, schema, tableName)) {
+                logger.info("Table {}.{} already exists, skipping creation", schema, tableName);
+                return;
+            }
+
+            // Execute the create table statement
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(statement);
+                logger.info("Successfully created table {}.{}", schema, tableName);
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to create table", e);
         }
     }
 
-}
+    private boolean tableExists(Connection conn, String schema, String tableName) throws SQLException {
+        String sql = """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = ?
+            AND TABLE_NAME = ?
+            """;
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, schema);
+            stmt.setString(2, tableName);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        }
+        return false;
+    }
+} 
