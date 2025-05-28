@@ -17,5 +17,9 @@ public interface DatabaseConnector {
 
     List<String> getAllTableNames(DataSource dataSource, String schema);
 
+    void createTable(DataSource dataSource, String statement, String tableName, String schema);
+
+    // void dropTable(DataSource dataSource, String schema, String tableName);
+
 
 }

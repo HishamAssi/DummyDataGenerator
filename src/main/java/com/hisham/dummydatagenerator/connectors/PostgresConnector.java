@@ -123,4 +123,12 @@ public class PostgresConnector implements DatabaseConnector {
         return tables;
     }
 
+    public void createTable(DataSource dataSource, String statement, String tableName, String schema) {
+        try (Connection conn = dataSource.getConnection()) {
+            conn.createStatement().execute(statement);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to create table", e);
+        }
+    }
+
 }

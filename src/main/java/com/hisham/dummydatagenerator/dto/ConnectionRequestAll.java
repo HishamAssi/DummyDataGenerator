@@ -53,5 +53,21 @@ public class ConnectionRequestAll {
     public List<String> getIncludeTables() {
         return includeTables;
     }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public void setSchema(String schema) {
+        this.schema = schema;
+    }
+
+    public void setRowsPerTable(int rowsPerTable) {
+        this.rowsPerTable=rowsPerTable;
+    }
 }
 

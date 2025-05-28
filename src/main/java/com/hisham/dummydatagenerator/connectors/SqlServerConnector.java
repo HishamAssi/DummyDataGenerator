@@ -124,4 +124,68 @@ public class SqlServerConnector implements DatabaseConnector {
 
         return tables;
     }
+
+    @Override
+    public void createTable(DataSource dataSource, String statement, String tableName, String schema) {
+        try (Connection conn = dataSource.getConnection()) {
+            
+            // Check if table exists
+            if (tableExists(conn, schema, tableName)) {
+                logger.info("Table {}.{} already exists, skipping creation", schema, tableName);
+                return;
+            }
+
+            // Execute the create table statement
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(statement);
+                logger.info("Successfully created table {}.{}", schema, tableName);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to create table", e);
+        }
+    }
+
+    public void dropTable(DataSource dataSource, String schema, String tableName) {
+        try (Connection conn = dataSource.getConnection()) {
+            if (tableExists(conn, schema, tableName)) {
+                conn.createStatement().execute("DROP TABLE " + schema + "." + tableName);
+                logger.info("Successfully dropped table {}.{}", schema, tableName);
+            } else {
+                logger.info("Table {}.{} does not exist, skipping drop", schema, tableName);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to drop table", e);
+        }
+    }
+
+    private boolean tableExists(Connection conn, String schema, String tableName) throws SQLException {
+        String sql = """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = ?
+            AND TABLE_NAME = ?
+            """;
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, schema);
+            stmt.setString(2, tableName);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        }
+        return false;
+    }
+
+    private String extractTableName(String statement) {
+        // Simple extraction - assumes format: CREATE TABLE schema.table_name
+        String[] parts = statement.split("CREATE TABLE")[1].trim().split("\\s+")[0].split("\\.");
+        return parts[parts.length - 1].trim();
+    }
+
+    private String extractSchema(String statement) {
+        // Simple extraction - assumes format: CREATE TABLE schema.table_name
+        String[] parts = statement.split("CREATE TABLE")[1].trim().split("\\s+")[0].split("\\.");
+        return parts.length > 1 ? parts[0].trim() : "dbo";
+    }
 }
