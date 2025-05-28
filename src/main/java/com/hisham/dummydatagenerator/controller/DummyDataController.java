@@ -6,8 +6,10 @@ import com.hisham.dummydatagenerator.schema.TableMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import javax.sql.DataSource;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +25,9 @@ public class DummyDataController {
     @Autowired
     private DatabaseIntrospector introspector;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @PostMapping("/{schema}/{table}")
     public String generateData(@PathVariable String schema,
                                @PathVariable String table,
@@ -30,14 +35,16 @@ public class DummyDataController {
                                @RequestParam(defaultValue = "1") int tnx) {
 
         TableMetadata metadata = introspector.getTableMetadata(schema, table);
+
+        DataSource dataSource = jdbcTemplate.getDataSource();
+
         int tnx_i = 0;
 
         while (tnx_i < tnx) {
             logger.debug("Inserting transaction number {}", tnx_i);
-            List<Map<String, Object>> dummyRows = dummyDataService.generateRows(metadata, rows, schema);
+            List<Map<String, Object>> dummyRows = dummyDataService.generateRows(dataSource, metadata, rows, schema);
             dummyDataService.insertRows(schema, table, dummyRows);
             tnx_i++;
-
         }
         return "Inserted " + tnx + " transaction(s) with " + rows + " dummy rows into " + schema + "." + table;
     }

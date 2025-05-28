@@ -9,6 +9,7 @@ public class DataGeneratorFactory {
 
     private final static int smallInt = 32768;
     private final static int normInt = 2147483647;
+    private final static int textSize = normInt - 1;
     /*
     generatorMap.put("int2", new SmallIntGenerator());
 generatorMap.put("int4", new IntegerGenerator());
@@ -28,13 +29,21 @@ generatorMap.put("bool", new BooleanGenerator());
 */
 
     public static ColumnDataGenerator getGenerator(ColumnMetadata column) {
-        String type = column.getDataType().toLowerCase();
+        if (column == null) {
+            throw new NullPointerException("Column metadata cannot be null");
+        }
 
-        return switch (type) {
+        String type = column.getDataType();
+        if (type == null) {
+            return () -> null;
+        }
+
+        return switch (type.toLowerCase()) {
             case "varchar" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 50);
-            case "numeric" -> new NumericGenerator(column.getColumnSize(), column.getDecimalDigits());
+            case "text" -> new VarcharGenerator(textSize);
+            case "numeric", "decimal" -> new NumericGenerator(column.getColumnSize(), column.getDecimalDigits());
             case "int2" -> new IntegerGenerator(-smallInt, smallInt);
-            case "int4", "money"  -> new IntegerGenerator(-normInt, normInt);
+            case "int4", "money", "int"  -> new IntegerGenerator(-normInt, normInt);
             case "int8" -> new BigIntGenerator();
             case "timestamptz" -> new TimestampGenerator();
             case "timestamp" -> new TimestampGenerator();

@@ -8,6 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
 
 @Service
@@ -15,7 +20,8 @@ public class DummyDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(DummyDataService.class);
 
-    public List<Map<String, Object>> generateRows(TableMetadata metadata, int rowCount, String schema) {
+    public List<Map<String, Object>> generateRows(DataSource dataSource, TableMetadata metadata, int rowCount,
+                                                  String schema) {
 
         logger.info("Generating rows for table {}", metadata.getTableName());
         logger.debug("Row schema: {}", metadata.getColumns());
@@ -28,7 +34,7 @@ public class DummyDataService {
                 .findFirst().orElse(null);
 
         Set<Object> existingPKs = (pkColumn != null)
-                ? fetchExistingPrimaryKeys(schema, metadata.getTableName(), pkColumn)
+                ? fetchExistingPrimaryKeys(dataSource, schema, metadata.getTableName(), pkColumn)
                 : Collections.emptySet();
 
         int generated = 0;
@@ -55,7 +61,7 @@ public class DummyDataService {
 
         return rows;
 
-}
+    }
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -77,10 +83,23 @@ public class DummyDataService {
         }
     }
 
-    public Set<Object> fetchExistingPrimaryKeys(String schema, String tableName, String primaryKeyColumn) {
+    public Set<Object> fetchExistingPrimaryKeys(DataSource dataSource, String schema, String tableName, String primaryKeyColumn) {
+        Set<Object> primaryKeys = new HashSet<>();
         String sql = String.format("SELECT %s FROM %s.%s", primaryKeyColumn, schema, tableName);
-        List<Object> existing = jdbcTemplate.queryForList(sql, Object.class);
-        return new HashSet<>(existing);
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                primaryKeys.add(rs.getObject(1));
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Error fetching primary keys: ", e);
+        }
+
+        return primaryKeys;
     }
 
 
