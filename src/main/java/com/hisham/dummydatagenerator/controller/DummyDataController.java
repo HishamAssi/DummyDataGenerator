@@ -30,22 +30,32 @@ public class DummyDataController {
 
     @PostMapping("/{schema}/{table}")
     public String generateData(@PathVariable String schema,
-                               @PathVariable String table,
-                               @RequestParam(defaultValue = "100") int rows,
-                               @RequestParam(defaultValue = "1") int tnx) {
+                             @PathVariable String table,
+                             @RequestParam(defaultValue = "100") int rows,
+                             @RequestParam(defaultValue = "1") int tnx) {
 
         TableMetadata metadata = introspector.getTableMetadata(schema, table);
-
         DataSource dataSource = jdbcTemplate.getDataSource();
 
         int tnx_i = 0;
+        int totalRows = 0;
 
         while (tnx_i < tnx) {
             logger.debug("Inserting transaction number {}", tnx_i);
             List<Map<String, Object>> dummyRows = dummyDataService.generateRows(dataSource, metadata, rows, schema);
+            
+            
             dummyDataService.insertRows(schema, table, dummyRows);
+            
+            totalRows += dummyRows.size();
             tnx_i++;
         }
-        return "Inserted " + tnx + " transaction(s) with " + rows + " dummy rows into " + schema + "." + table;
+
+        return String.format(" %d rows for table %s.%s", totalRows, schema, table);
+    }
+
+    @GetMapping("/metadata/{schema}/{table}")
+    public TableMetadata getTableMetadata(@PathVariable String schema, @PathVariable String table) {
+        return introspector.getTableMetadata(schema, table);
     }
 }

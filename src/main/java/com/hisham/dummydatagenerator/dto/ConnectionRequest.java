@@ -7,6 +7,7 @@ public class ConnectionRequest {
     private String dbType;
     private String schema;
     private String table;
+    private String topic;
 
     // Getters and Setters
     public String getJdbcUrl() {
@@ -55,6 +56,14 @@ public class ConnectionRequest {
 
     public void setTable(String table) {
         this.table = table;
+    }
+
+    public void setTopic(String topic) {
+        this.topic = topic;
+    }
+
+    public String getTopic() {
+        return topic;
     }
 }
 

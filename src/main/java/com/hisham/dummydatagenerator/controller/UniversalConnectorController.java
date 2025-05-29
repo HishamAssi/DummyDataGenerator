@@ -6,6 +6,8 @@ import com.hisham.dummydatagenerator.dto.ConnectionRequest;
 import com.hisham.dummydatagenerator.dto.ConnectionRequestAll;
 import com.hisham.dummydatagenerator.generator.DummyDataService;
 import com.hisham.dummydatagenerator.schema.TableMetadata;
+import com.hisham.dummydatagenerator.service.KafkaService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,10 @@ import java.util.Map;
 @RequestMapping("/universal")
 public class UniversalConnectorController {
 
+    private static final Logger logger = LoggerFactory.getLogger(UniversalConnectorController.class);
+
+    @Autowired
+    private KafkaService kafkaService;
 
     @Autowired
     private DummyDataService dummyDataService;
@@ -46,6 +52,8 @@ public class UniversalConnectorController {
                          @RequestBody ConnectionRequest req) {
         DataSource ds = DatasourceProvider.createDataSource(req.getJdbcUrl(), req.getUsername(), req.getPassword());
 
+        
+
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
@@ -55,7 +63,12 @@ public class UniversalConnectorController {
         int tnx_i = 0;
         while (tnx_i < tnx) {
             List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
-            connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
+            if (req.getTopic() != null) {
+                kafkaService.sendTableData(req.getTopic(), req.getSchema(), req.getTable(), rows);
+            }
+            else {
+                connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
+            }
             tnx_i++;
         }
         return "Inserted " + tnx + " transaction(s) with " + row_count + " dummy rows into "
@@ -84,7 +97,7 @@ public class UniversalConnectorController {
 
         for (String table : allTables) {
             if (toIgnore.contains(table)) {
-                System.out.println("[SKIP] Ignoring table: " + table);
+                logger.debug("[SKIP] Ignoring table: " + table);
                 continue;
             }
 
@@ -92,11 +105,15 @@ public class UniversalConnectorController {
                 TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), table);
                 List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, req.getRowsPerTable(),
                         req.getSchema());
-                connector.insertRows(ds, req.getSchema(), table, metadata, rows);
+                if (req.getTopic() != null) {
+                    kafkaService.sendTableData(req.getTopic(), req.getSchema(), table, rows);
+                }
+                else {
+                    connector.insertRows(ds, table, req.getSchema(), metadata, rows);
+                }
                 resultMap.put(table, req.getRowsPerTable());
             } catch (Exception e) {
-                System.err.println("[ERROR] Failed to insert into table: " + table);
-                e.printStackTrace();
+                logger.error("[ERROR] Failed to insert into table: " + table, e);
                 resultMap.put(table, 0); // or add error message
             }
         }
