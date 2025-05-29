@@ -9,6 +9,7 @@ public class ConnectionRequestAll {
     private String password;
     private String schema;
     private int rowsPerTable;
+    private String topic;
 
     private List<String> ignoreTables;
 
@@ -69,5 +70,14 @@ public class ConnectionRequestAll {
     public void setRowsPerTable(int rowsPerTable) {
         this.rowsPerTable=rowsPerTable;
     }
+
+    public String getTopic() {
+        return this.topic;
+    }
+
+    public void setTopic(String topic) {
+        this.topic = topic;
+    }
+
 }
 
