@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.hisham</groupId>
 	<artifactId>dummy-data-generator</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2</version>
 	<name>DummyDataGenerator</name>
 	<description>SaaS app to generate dummy data</description>
 	<url/>
@@ -101,6 +101,10 @@
 			<groupId>com.ibm.db2</groupId>
 			<artifactId>jcc</artifactId>
 			<version>12.1.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
 		</dependency>
 	</dependencies>
 
