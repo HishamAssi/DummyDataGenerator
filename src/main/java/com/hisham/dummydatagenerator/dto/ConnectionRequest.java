@@ -8,6 +8,7 @@ public class ConnectionRequest {
     private String schema;
     private String table;
     private String topic;
+    private KafkaProducerConfig kafkaConfig;
 
     // Getters and Setters
     public String getJdbcUrl() {
@@ -64,6 +65,14 @@ public class ConnectionRequest {
 
     public String getTopic() {
         return topic;
+    }
+
+    public KafkaProducerConfig getKafkaConfig() {
+        return kafkaConfig;
+    }
+
+    public void setKafkaConfig(KafkaProducerConfig kafkaConfig) {
+        this.kafkaConfig = kafkaConfig;
     }
 }
 

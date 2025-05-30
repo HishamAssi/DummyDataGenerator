@@ -64,7 +64,7 @@ public class UniversalConnectorController {
         while (tnx_i < tnx) {
             List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
             if (req.getTopic() != null) {
-                kafkaService.sendTableData(req.getTopic(), req.getSchema(), req.getTable(), rows);
+                kafkaService.sendTableData(req.getTopic(), req.getTable(), req.getSchema(), rows, req.getKafkaConfig());
             }
             else {
                 connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
@@ -106,7 +106,7 @@ public class UniversalConnectorController {
                 List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, req.getRowsPerTable(),
                         req.getSchema());
                 if (req.getTopic() != null) {
-                    kafkaService.sendTableData(req.getTopic(), req.getSchema(), table, rows);
+                    kafkaService.sendTableData(req.getTopic(), req.getSchema(), table, rows, req.getKafkaConfig());
                 }
                 else {
                     connector.insertRows(ds, table, req.getSchema(), metadata, rows);

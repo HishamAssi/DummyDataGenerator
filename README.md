@@ -86,28 +86,136 @@ Or in IntelliJ:
 Once running, Tomcat should start at `http://localhost:8080/api`
 
 ## 📡 API Usage
-### 🧠 1. Get Table Metadata
-```pgsql
-GET /api/schema/{schema}/{table}
-```
-Example:
 
-```pgsql
-GET http://localhost:8080/api/schema/public/test_table
-```
-Returns column names, types, and nullability info.
+### Universal Connector Endpoints
 
-### 🧬 2. Generate & Insert Dummy Data
-```pgsql
-POST /api/data/{schema}/{table}?rows=100
+All API requests require the following Parameters:
+
+- `jdbcUrl`: Standard jdbc url used for connecting to Database
+- `username`: Database username for the jdbcUrl
+- `password`: Database password for the jdbcUrl
+- `dbType`: Currently only supports "POSTGRESQL" and "SQLSERVER"
+
+#### 1. Introspect Table Schema
+```http
+POST /api/universal/introspect
+Content-Type: application/json
+
+{
+    "jdbcUrl": "jdbc:postgresql://localhost:5432/your_db",
+    "username": "your_username",
+    "password": "your_password",
+    "dbType": "POSTGRESQL",
+    "schema": "public",
+    "table": "your_table"
+}
+```
+Returns detailed table metadata including column names, types, and constraints.
+
+Insert API requests have the option to go to a kafka topic by specifying the following parameters:
+- `topic`: A kafka topic name, this will automatically switch the apply to the kafka topic while generating metadata from the source table.
+- `kafkaConfig`: By default, the API will try to connect to localhost:9092 for the kafka topic but you can specify any bootstrap server and any other kafka configurations needed.
+
+#### 2. Insert Dummy Data
+```http
+POST /api/universal/insert?row_count=100&tnx=1
+Content-Type: application/json
+
+{
+    "jdbcUrl": "jdbc:postgresql://localhost:5432/your_db",
+    "username": "your_username",
+    "password": "your_password",
+    "dbType": "POSTGRESQL",
+    "schema": "public",
+    "table": "your_table",
+    "topic": "optional_kafka_topic",
+    "kafkaConfig": {
+        "bootstrapServers": "kafka:9092",
+        "keySerializer": "org.apache.kafka.common.serialization.StringSerializer",
+        "valueSerializer": "org.springframework.kafka.support.serializer.JsonSerializer",
+        "additionalProperties": {
+        "security.protocol": "SASL_SSL",
+        "sasl.mechanism": "PLAIN",
+        "sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass\";"
+        }
+    }
+}
+```
+Optional request Parameters for regular insert:
+- `row_count`: Number of rows to generate (default: 100)
+- `tnx`: Number of transactions to perform (default: 1)
+
+#### 3. Insert Into All Tables
+```http
+POST /api/universal/insert-all
+Content-Type: application/json
+
+{
+    "jdbcUrl": "jdbc:postgresql://localhost:5432/your_db",
+    "username": "your_username",
+    "password": "your_password",
+    "dbType": "POSTGRESQL",
+    "schema": "public",
+    "rowsPerTable": 100,
+    "includeTables": ["table1", "table2"],
+    "ignoreTables": ["table3"],
+    "topic": "optional_kafka_topic",
+    "kafkaConfig": {
+        "bootstrapServers": "kafka:9092",
+        "keySerializer": "org.apache.kafka.common.serialization.StringSerializer",
+        "valueSerializer": "org.springframework.kafka.support.serializer.JsonSerializer",
+        "additionalProperties": {
+        "security.protocol": "SASL_SSL",
+        "sasl.mechanism": "PLAIN",
+        "sasl.jaas.config": "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user\" password=\"pass\";"
+        }
+    }
+}
 ```
 
-Example:
+Optional Parameters for insert-all:
+- `includeTables`: Instead of generating data for all tables in the schema, generate data only for this subset.
+- `excludeTables`: Exclude these tables from the list of tables that data is being generated for, this can be used in tandem with includeTables.
 
-```bash
-POST http://localhost:8080/api/data/public/test_table?rows=100
+
+### Response Examples
+
+#### Introspect Response
+```json
+{
+    "tableName": "your_table",
+    "columns": [
+        {
+            "name": "id",
+            "type": "INTEGER",
+            "nullable": false,
+            "primaryKey": true
+        },
+        {
+            "name": "name",
+            "type": "VARCHAR",
+            "nullable": true,
+            "primaryKey": false
+        }
+    ]
+}
 ```
-Generates 100 rows of type-matched dummy data and inserts them into test_table.
+
+#### Insert Response
+```json
+"Inserted 1 transaction(s) with 100 dummy rows into your_table"
+```
+
+#### Insert All Response
+```json
+{
+    "message": "Insert complete",
+    "rowsInserted": {
+        "table1": 100,
+        "table2": 100
+    }
+}
+```
 
 ## ⚙️ Data Types Supported (so far)
 SQL Type	Generator Example
