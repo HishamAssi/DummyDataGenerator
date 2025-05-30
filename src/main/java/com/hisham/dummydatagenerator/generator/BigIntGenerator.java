@@ -2,7 +2,6 @@ package com.hisham.dummydatagenerator.generator;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class BigIntGenerator implements ColumnDataGenerator {
     @Override

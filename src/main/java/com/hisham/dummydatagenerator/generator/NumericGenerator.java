@@ -2,8 +2,6 @@ package com.hisham.dummydatagenerator.generator;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class NumericGenerator implements ColumnDataGenerator {

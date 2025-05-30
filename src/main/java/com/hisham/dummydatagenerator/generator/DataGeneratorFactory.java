@@ -2,8 +2,6 @@ package com.hisham.dummydatagenerator.generator;
 
 import com.hisham.dummydatagenerator.schema.ColumnMetadata;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class DataGeneratorFactory {
 
