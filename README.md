@@ -6,10 +6,10 @@
 
 ## 🚀 Features
 
-- 🔌 Connects to PostgreSQL (other DBs coming soon)
+- 🔌 Connects to PostgreSQL and SQL Server (other DBs coming soon)
 - 🧠 Introspects table schema: columns, types, nullability
 - 🤖 Generates dummy data based on SQL data types
-- 📝 Inserts rows directly into your selected table
+- 📝 Inserts rows directly into your selected table OR into a kafka topic
 - 🌐 REST API for easy integration
 - 💡 Modular architecture for extensibility
 
@@ -129,3 +129,36 @@ date	Random date (2000–2022)
 
 ## 🤝 Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss improvements.
+
+## 🚀 CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment. The pipeline:
+
+1. Builds and tests the application
+2. Builds a Docker image
+3. Pushes the image to GitHub Container Registry (ghcr.io)
+
+### Pipeline Triggers
+- On push to main branch
+- On pull requests to main branch
+
+### Image Tags
+The Docker image is tagged with:
+- Branch name
+- PR number (for pull requests)
+- Semantic version (if using tags)
+- Git SHA
+
+### Using the Container Registry
+
+To use the container registry:
+
+1. Authenticate to GitHub Container Registry:
+```bash
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+```
+
+2. Pull the image:
+```bash
+docker pull ghcr.io/USERNAME/dummy-data-generator:latest
+```

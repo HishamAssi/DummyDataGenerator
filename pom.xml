@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
+		<skip.integration.tests>true</skip.integration.tests>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -138,7 +139,59 @@
 					</excludes>
 				</configuration>
 			</plugin>
+			<!-- Unit Tests -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>**/*IT.java</exclude>
+						<exclude>**/*IntegrationTest.java</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+			<!-- Integration Tests -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<configuration>
+					<includes>
+						<include>**/*IT.java</include>
+						<include>**/*IntegrationTest.java</include>
+					</includes>
+					<skipTests>${skip.integration.tests}</skipTests>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>unit-tests</id>
+			<properties>
+				<skip.integration.tests>true</skip.integration.tests>
+			</properties>
+		</profile>
+		<profile>
+			<id>integration-tests</id>
+			<properties>
+				<skip.integration.tests>false</skip.integration.tests>
+			</properties>
+		</profile>
+		<profile>
+			<id>all-tests</id>
+			<properties>
+				<skip.integration.tests>false</skip.integration.tests>
+			</properties>
+		</profile>
+	</profiles>
 
 </project>
