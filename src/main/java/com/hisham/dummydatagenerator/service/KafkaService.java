@@ -1,5 +1,7 @@
 package com.hisham.dummydatagenerator.service;
 
+import com.hisham.dummydatagenerator.config.KafkaConfig;
+import com.hisham.dummydatagenerator.dto.KafkaProducerConfig;
 import com.hisham.dummydatagenerator.dto.TableDataMessage;
 
 import java.util.List;
@@ -16,9 +18,15 @@ public class KafkaService {
     private static final Logger logger = LoggerFactory.getLogger(KafkaService.class);
 
     @Autowired
-    private KafkaTemplate<String, Object> kafkaTemplate;
+    private KafkaConfig kafkaConfig;
 
-    public void sendTableData(String topic, String tableName, String schema, List<Map<String, Object>> rows) {
+    @Autowired
+    private KafkaTemplate<String, Object> defaultKafkaTemplate;
+
+    public void sendTableData(String topic, String tableName, String schema, List<Map<String, Object>> rows, KafkaProducerConfig producerConfig) {
+        KafkaTemplate<String, Object> kafkaTemplate = producerConfig != null ? 
+            kafkaConfig.createKafkaTemplate(producerConfig) : defaultKafkaTemplate;
+
         for (Map<String, Object> row : rows) {
             TableDataMessage message = new TableDataMessage(tableName, schema, row);
             logger.info("Sending data to Kafka for table {}.{}", schema, tableName);

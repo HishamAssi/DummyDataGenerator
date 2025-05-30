@@ -10,9 +10,8 @@ public class ConnectionRequestAll {
     private String schema;
     private int rowsPerTable;
     private String topic;
-
+    private KafkaProducerConfig kafkaConfig;
     private List<String> ignoreTables;
-
     private List<String> includeTables;
 
     public String getJdbcUrl() {
@@ -79,5 +78,12 @@ public class ConnectionRequestAll {
         this.topic = topic;
     }
 
+    public KafkaProducerConfig getKafkaConfig() {
+        return kafkaConfig;
+    }
+
+    public void setKafkaConfig(KafkaProducerConfig kafkaConfig) {
+        this.kafkaConfig = kafkaConfig;
+    }
 }
 

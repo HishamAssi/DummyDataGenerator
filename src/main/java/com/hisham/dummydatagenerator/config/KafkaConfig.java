@@ -1,5 +1,6 @@
 package com.hisham.dummydatagenerator.config;
 
+import com.hisham.dummydatagenerator.dto.KafkaProducerConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -18,20 +19,44 @@ import java.util.Map;
 public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
-    private String bootstrapServers;
+    private String defaultBootstrapServers;
 
     @Bean
     public NewTopic tableDataTopic() {
         return new NewTopic("table-data", 1, (short) 1);
     }
 
+    public ProducerFactory<String, Object> createProducerFactory(KafkaProducerConfig config) {
+        Map<String, Object> configProps = new HashMap<>();
+        
+        // Set bootstrap servers
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, 
+            config.getBootstrapServers() != null ? config.getBootstrapServers() : defaultBootstrapServers);
+        
+        // Set serializers
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, 
+            config.getKeySerializer() != null ? config.getKeySerializer() : StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, 
+            config.getValueSerializer() != null ? config.getValueSerializer() : JsonSerializer.class);
+        
+        // Add any additional properties
+        if (config.getAdditionalProperties() != null) {
+            configProps.putAll(config.getAdditionalProperties());
+        }
+        
+        return new DefaultKafkaProducerFactory<>(configProps);
+    }
+
+    public KafkaTemplate<String, Object> createKafkaTemplate(KafkaProducerConfig config) {
+        return new KafkaTemplate<>(createProducerFactory(config));
+    }
+
+    // Default producer factory for backward compatibility
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
-        Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        return new DefaultKafkaProducerFactory<>(configProps);
+        KafkaProducerConfig defaultConfig = new KafkaProducerConfig();
+        defaultConfig.setBootstrapServers(defaultBootstrapServers);
+        return createProducerFactory(defaultConfig);
     }
 
     @Bean
