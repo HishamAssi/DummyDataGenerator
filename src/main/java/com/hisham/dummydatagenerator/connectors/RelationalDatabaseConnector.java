@@ -4,8 +4,6 @@ import com.hisham.dummydatagenerator.schema.ColumnMetadata;
 import com.hisham.dummydatagenerator.schema.TableMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
@@ -17,9 +15,6 @@ public class RelationalDatabaseConnector implements DatabaseConnector {
 
     private static final Logger logger = LoggerFactory.getLogger(RelationalDatabaseConnector.class);
     private static final Set<String> SUPPORTED_DB_TYPES = Set.of("postgresql", "sqlserver");
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     @Override
     public boolean supports(String dbType) {
@@ -94,7 +89,7 @@ public class RelationalDatabaseConnector implements DatabaseConnector {
                         stmt.setObject(i + 1, value);
                     }
                     int insertResult = stmt.executeUpdate();
-                    logger.debug("Insert returned code: {}", insertResult);
+                    logger.trace("Insert returned code: {}", insertResult);
                 }
             }
 
@@ -140,7 +135,7 @@ public class RelationalDatabaseConnector implements DatabaseConnector {
         }
     }
 
-    private boolean tableExists(Connection conn, String schema, String tableName) throws SQLException {
+    public boolean tableExists(Connection conn, String schema, String tableName) throws SQLException {
         String sql = """
             SELECT COUNT(*)
             FROM INFORMATION_SCHEMA.TABLES

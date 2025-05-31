@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import javax.sql.DataSource;
@@ -20,13 +21,14 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
     "spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver",
     "spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=master;encrypt=false",
     "spring.datasource.username=sa",
     "spring.datasource.password=reallyStrongPwd123"
 })
-public class DummyDataIntegrationTest {
+public class DummyDataIT {
 
     @Autowired
     private UniversalConnectorController universalConnectorController;
@@ -46,8 +48,6 @@ public class DummyDataIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        
-        
         // Create test table using RelationalDatabaseConnector
         String createTableSQL = """
             IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '%s')

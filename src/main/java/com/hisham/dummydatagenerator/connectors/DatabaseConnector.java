@@ -3,7 +3,10 @@ package com.hisham.dummydatagenerator.connectors;
 import com.hisham.dummydatagenerator.schema.TableMetadata;
 
 import javax.sql.DataSource;
-import java.util.List;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.List; 
 import java.util.Map;
 
 public interface DatabaseConnector {
@@ -19,7 +22,6 @@ public interface DatabaseConnector {
 
     void createTable(DataSource dataSource, String statement, String tableName, String schema);
 
-    // void dropTable(DataSource dataSource, String schema, String tableName);
-
+    boolean tableExists(Connection conn, String schema, String tableName) throws SQLException;
 
 }
