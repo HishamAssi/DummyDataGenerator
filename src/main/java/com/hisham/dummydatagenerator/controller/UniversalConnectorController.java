@@ -18,6 +18,8 @@ import javax.sql.DataSource;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import org.springframework.http.HttpStatus;
 
 /**
  * UniversalConnectorController is a REST controller that provides endpoints for database operations
@@ -35,7 +37,6 @@ public class UniversalConnectorController {
 
     private static final Logger logger = LoggerFactory.getLogger(UniversalConnectorController.class);
 
-    @Autowired
     private KafkaService kafkaService;
 
     @Autowired
@@ -77,27 +78,29 @@ public class UniversalConnectorController {
      */
     @PostMapping("/insert")
     public String insert(@RequestParam(defaultValue = "100") int row_count,
-                         @RequestParam(defaultValue = "1") int tnx,
-                         @RequestBody ConnectionRequest req) {
+                        @RequestParam(defaultValue = "1") int tnx,
+                        @RequestBody ConnectionRequest req) {
         DataSource ds = DatasourceProvider.createDataSource(req.getJdbcUrl(), req.getUsername(), req.getPassword());
-
+        
         // Find appropriate connector for the database type
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No connector for " + req.getDbType()));
-
+        
         // Get table metadata and generate data for specified number of transactions
         TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), req.getTable());
         int tnx_i = 0;
+        if (req.getTopic() != null) {
+            kafkaService = new KafkaService();
+        }
         while (tnx_i < tnx) {
             List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
-            if (req.getTopic() != null) {
-                // Send to Kafka if topic is specified
+            if (kafkaService != null) {
+                // Send to Kafka if topic is specified and Kafka service is available
                 kafkaService.sendTableData(req.getTopic(), req.getTable(), req.getSchema(), rows, req.getKafkaConfig());
-            }
-            else {
-                // Insert into database if no Kafka topic specified
+            } else {
+                // Insert into database if no Kafka topic specified or Kafka service not available
                 connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
             }
             tnx_i++;
@@ -119,23 +122,26 @@ public class UniversalConnectorController {
     public ResponseEntity<Map<String, Object>> insertIntoAllTables(@RequestBody ConnectionRequestAll req) {
         DataSource ds = DatasourceProvider.createDataSource(
                 req.getJdbcUrl(), req.getUsername(), req.getPassword());
-
+        
         // Find appropriate connector for the database type
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No connector for: " + req.getDbType()));
-
+        
         // Get list of tables to process
         List<String> allTables;
         if (req.getIncludeTables() != null) {
             allTables = req.getIncludeTables();
-        }
-        else {
+        } else {
             allTables = connector.getAllTableNames(ds, req.getSchema());
         }
         List<String> toIgnore = req.getIgnoreTables() != null ? req.getIgnoreTables() : List.of();
         Map<String, Integer> resultMap = new LinkedHashMap<>();
+
+        if (req.getTopic() != null) {
+            kafkaService = new KafkaService();
+        }
 
         // Process each table
         for (String table : allTables) {
@@ -149,18 +155,22 @@ public class UniversalConnectorController {
                 TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), table);
                 List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, req.getRowsPerTable(),
                         req.getSchema());
-                if (req.getTopic() != null) {
-                    // Send to Kafka if topic is specified
+                if (kafkaService != null) {
+                    // Send to Kafka if topic is specified and Kafka service is available
                     kafkaService.sendTableData(req.getTopic(), req.getSchema(), table, rows, req.getKafkaConfig());
-                }
-                else {
-                    // Insert into database if no Kafka topic specified
+                } else {
+                    // Insert into database if no Kafka topic specified or Kafka service not available
                     connector.insertRows(ds, table, req.getSchema(), metadata, rows);
                 }
                 resultMap.put(table, req.getRowsPerTable());
             } catch (Exception e) {
-                logger.error("[ERROR] Failed to insert into table: " + table, e);
-                resultMap.put(table, 0); // Mark as failed in results
+                if (req.getTopic() != null) {
+                    logger.error("[ERROR] Failed to insert into topic: " + req.getDbType(), e);
+                }
+                else {
+                    logger.error("[ERROR] Failed to insert into table: " + table, e);
+                }
+                resultMap.put(table, -1); // Mark as failed in results
             }
         }
 
