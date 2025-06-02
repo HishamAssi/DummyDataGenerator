@@ -160,7 +160,7 @@ public class UniversalConnectorController {
                     kafkaService.sendTableData(req.getTopic(), req.getSchema(), table, rows, req.getKafkaConfig());
                 } else {
                     // Insert into database if no Kafka topic specified or Kafka service not available
-                    connector.insertRows(ds, table, req.getSchema(), metadata, rows);
+                    connector.insertRows(ds, req.getSchema(), table, metadata, rows);
                 }
                 resultMap.put(table, req.getRowsPerTable());
             } catch (Exception e) {
