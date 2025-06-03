@@ -21,6 +21,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.apache.kafka.clients.producer.KafkaProducer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -76,5 +77,31 @@ public class KafkaConfig {
     public KafkaTemplate<String, Object> createKafkaTemplate(KafkaProducerConfig config) {
         logger.trace("Creating KafkaTemplate");
         return new KafkaTemplate<>(createProducerFactory(config));
+    }
+
+    /**
+     * Creates a Kafka producer with the specified configuration.
+     *
+     * @param config Additional configuration for the producer
+     * @return Configured KafkaProducer instance
+     */
+    public KafkaProducer<String, Object> createKafkaProducer(Map<String, Object> config) {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, 
+            config.getOrDefault("bootstrap.servers", DEFAULT_BOOTSTRAP_SERVERS));
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.RETRIES_CONFIG, 3);
+        props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+        props.put(ProducerConfig.LINGER_MS_CONFIG, 1);
+        props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
+
+        // Add any additional configuration
+        props.putAll(config);
+
+        logger.info("Creating Kafka producer with bootstrap servers: {}", 
+            props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+        return new KafkaProducer<>(props);
     }
 } 

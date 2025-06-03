@@ -7,18 +7,21 @@ import com.hisham.dummydatagenerator.dto.ConnectionRequestAll;
 import com.hisham.dummydatagenerator.generator.DummyDataService;
 import com.hisham.dummydatagenerator.schema.TableMetadata;
 import com.hisham.dummydatagenerator.service.KafkaService;
+import com.hisham.dummydatagenerator.config.KafkaProducerConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PreDestroy;
 
 import javax.sql.DataSource;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -30,6 +33,8 @@ import org.springframework.http.HttpStatus;
  * 1. Table introspection - Get metadata about database tables
  * 2. Single table data insertion - Insert dummy data into a specific table
  * 3. Multi-table data insertion - Insert dummy data into multiple tables
+ *
+ * All operations are thread-safe and support concurrent execution.
  */
 @RestController
 @RequestMapping("/universal")
@@ -37,13 +42,26 @@ public class UniversalConnectorController {
 
     private static final Logger logger = LoggerFactory.getLogger(UniversalConnectorController.class);
 
-    private KafkaService kafkaService;
+    private final Map<String, KafkaService> kafkaServices = new ConcurrentHashMap<>();
+    private final ThreadPoolTaskExecutor taskExecutor;
 
     @Autowired
     private DummyDataService dummyDataService;
 
     @Autowired
     private List<DatabaseConnector> connectors;
+
+    @Value("${controller.thread-pool.size:10}")
+    private int threadPoolSize;
+
+    public UniversalConnectorController() {
+        this.taskExecutor = new ThreadPoolTaskExecutor();
+        this.taskExecutor.setCorePoolSize(threadPoolSize);
+        this.taskExecutor.setMaxPoolSize(threadPoolSize);
+        this.taskExecutor.setQueueCapacity(100);
+        this.taskExecutor.setThreadNamePrefix("Connector-");
+        this.taskExecutor.initialize();
+    }
 
     /**
      * Introspects a database table and returns its metadata.
@@ -54,10 +72,8 @@ public class UniversalConnectorController {
      */
     @PostMapping("/introspect")
     public TableMetadata introspect(@RequestBody ConnectionRequest req) {
-        // Create datasource from connection details
         DataSource ds = DatasourceProvider.createDataSource(req.getJdbcUrl(), req.getUsername(), req.getPassword());
 
-        // Find appropriate connector for the database type
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
@@ -69,6 +85,7 @@ public class UniversalConnectorController {
     /**
      * Inserts dummy data into a specified database table.
      * Can optionally send the generated data to a Kafka topic instead of inserting into the database.
+     * Supports concurrent operations for improved performance.
      *
      * @param row_count Number of rows to generate per transaction (default: 100)
      * @param tnx Number of transactions to perform (default: 1)
@@ -82,29 +99,45 @@ public class UniversalConnectorController {
                         @RequestBody ConnectionRequest req) {
         DataSource ds = DatasourceProvider.createDataSource(req.getJdbcUrl(), req.getUsername(), req.getPassword());
         
-        // Find appropriate connector for the database type
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No connector for " + req.getDbType()));
         
-        // Get table metadata and generate data for specified number of transactions
         TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), req.getTable());
-        int tnx_i = 0;
+        AtomicInteger completedTnx = new AtomicInteger(0);
+        List<Future<?>> futures = new ArrayList<>();
+
         if (req.getTopic() != null) {
-            kafkaService = new KafkaService();
+            kafkaServices.computeIfAbsent(req.getTopic(), k -> new KafkaService());
         }
-        while (tnx_i < tnx) {
-            List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
-            if (kafkaService != null) {
-                // Send to Kafka if topic is specified and Kafka service is available
-                kafkaService.sendTableData(req.getTopic(), req.getTable(), req.getSchema(), rows, req.getKafkaConfig());
-            } else {
-                // Insert into database if no Kafka topic specified or Kafka service not available
-                connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
+
+        while (completedTnx.get() < tnx) {
+            futures.add(taskExecutor.submit(() -> {
+                if (completedTnx.get() >= tnx) return;
+
+                List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
+                if (req.getTopic() != null) {
+                    KafkaService kafkaService = kafkaServices.get(req.getTopic());
+                    kafkaService.sendTableData(req.getTopic(), req.getTable(), req.getSchema(), rows, 
+                        req.getKafkaConfig().toMap());
+                } else {
+                    connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
+                }
+                completedTnx.incrementAndGet();
+            }));
+        }
+
+        // Wait for all tasks to complete
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error during data insertion", e);
+                Thread.currentThread().interrupt();
             }
-            tnx_i++;
         }
+
         return "Inserted " + tnx + " transaction(s) with " + row_count + " dummy rows into "
                 + metadata.getTableName();
     }
@@ -113,6 +146,7 @@ public class UniversalConnectorController {
      * Inserts dummy data into multiple tables in the database.
      * Can optionally send the generated data to a Kafka topic instead of inserting into the database.
      * Supports table inclusion/exclusion lists and handles errors for individual tables gracefully.
+     * Uses concurrent processing for improved performance.
      *
      * @param req ConnectionRequestAll containing database connection details, table lists, and optional Kafka configuration
      * @return ResponseEntity containing a map of results with the number of rows inserted per table
@@ -123,54 +157,56 @@ public class UniversalConnectorController {
         DataSource ds = DatasourceProvider.createDataSource(
                 req.getJdbcUrl(), req.getUsername(), req.getPassword());
         
-        // Find appropriate connector for the database type
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No connector for: " + req.getDbType()));
         
-        // Get list of tables to process
-        List<String> allTables;
-        if (req.getIncludeTables() != null) {
-            allTables = req.getIncludeTables();
-        } else {
-            allTables = connector.getAllTableNames(ds, req.getSchema());
-        }
+        List<String> allTables = req.getIncludeTables() != null ? req.getIncludeTables() 
+                : connector.getAllTableNames(ds, req.getSchema());
         List<String> toIgnore = req.getIgnoreTables() != null ? req.getIgnoreTables() : List.of();
-        Map<String, Integer> resultMap = new LinkedHashMap<>();
+        Map<String, Integer> resultMap = new ConcurrentHashMap<>();
 
         if (req.getTopic() != null) {
-            kafkaService = new KafkaService();
+            kafkaServices.computeIfAbsent(req.getTopic(), k -> new KafkaService());
         }
 
-        // Process each table
+        List<Future<?>> futures = new ArrayList<>();
+
         for (String table : allTables) {
             if (toIgnore.contains(table)) {
-                logger.debug("[SKIP] Ignoring table: " + table);
+                logger.debug("[SKIP] Ignoring table: {}", table);
                 continue;
             }
 
+            futures.add(taskExecutor.submit(() -> {
+                try {
+                    TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), table);
+                    List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, 
+                        req.getRowsPerTable(), req.getSchema());
+
+                    if (req.getTopic() != null) {
+                        KafkaService kafkaService = kafkaServices.get(req.getTopic());
+                        kafkaService.sendTableData(req.getTopic(), table, req.getSchema(), rows, 
+                            req.getKafkaConfig().toMap());
+                    } else {
+                        connector.insertRows(ds, req.getSchema(), table, metadata, rows);
+                    }
+                    resultMap.put(table, req.getRowsPerTable());
+                } catch (Exception e) {
+                    logger.error("[ERROR] Failed to process table: {}", table, e);
+                    resultMap.put(table, -1);
+                }
+            }));
+        }
+
+        // Wait for all tasks to complete
+        for (Future<?> future : futures) {
             try {
-                // Generate and insert data for each table
-                TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), table);
-                List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, req.getRowsPerTable(),
-                        req.getSchema());
-                if (kafkaService != null) {
-                    // Send to Kafka if topic is specified and Kafka service is available
-                    kafkaService.sendTableData(req.getTopic(), req.getSchema(), table, rows, req.getKafkaConfig());
-                } else {
-                    // Insert into database if no Kafka topic specified or Kafka service not available
-                    connector.insertRows(ds, req.getSchema(), table, metadata, rows);
-                }
-                resultMap.put(table, req.getRowsPerTable());
-            } catch (Exception e) {
-                if (req.getTopic() != null) {
-                    logger.error("[ERROR] Failed to insert into topic: " + req.getDbType(), e);
-                }
-                else {
-                    logger.error("[ERROR] Failed to insert into table: " + table, e);
-                }
-                resultMap.put(table, -1); // Mark as failed in results
+                future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error during batch data insertion", e);
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -178,6 +214,15 @@ public class UniversalConnectorController {
                 "message", "Insert complete",
                 "rowsInserted", resultMap
         ));
+    }
+
+    /**
+     * Cleanup method to release resources when the controller is destroyed.
+     */
+    @PreDestroy
+    public void cleanup() {
+        kafkaServices.values().forEach(KafkaService::close);
+        taskExecutor.shutdown();
     }
 }
 
