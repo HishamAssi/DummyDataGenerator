@@ -7,7 +7,6 @@ import com.hisham.dummydatagenerator.dto.ConnectionRequestAll;
 import com.hisham.dummydatagenerator.generator.DummyDataService;
 import com.hisham.dummydatagenerator.schema.TableMetadata;
 import com.hisham.dummydatagenerator.service.KafkaService;
-import com.hisham.dummydatagenerator.config.KafkaProducerConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,13 +15,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import javax.sql.DataSource;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.springframework.http.HttpStatus;
 
 /**
  * UniversalConnectorController is a REST controller that provides endpoints for database operations
@@ -43,7 +42,7 @@ public class UniversalConnectorController {
     private static final Logger logger = LoggerFactory.getLogger(UniversalConnectorController.class);
 
     private final Map<String, KafkaService> kafkaServices = new ConcurrentHashMap<>();
-    private final ThreadPoolTaskExecutor taskExecutor;
+    private ThreadPoolTaskExecutor taskExecutor;
 
     @Autowired
     private DummyDataService dummyDataService;
@@ -51,15 +50,20 @@ public class UniversalConnectorController {
     @Autowired
     private List<DatabaseConnector> connectors;
 
-    @Value("${controller.thread-pool.size:10}")
+    @Value("${controller.thread-pool.size:20}")
     private int threadPoolSize;
 
     public UniversalConnectorController() {
+    }
+
+    @PostConstruct
+    public void initialize() {
         this.taskExecutor = new ThreadPoolTaskExecutor();
         this.taskExecutor.setCorePoolSize(threadPoolSize);
         this.taskExecutor.setMaxPoolSize(threadPoolSize);
-        this.taskExecutor.setQueueCapacity(100);
+        this.taskExecutor.setQueueCapacity(1000);
         this.taskExecutor.setThreadNamePrefix("Connector-");
+        this.taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         this.taskExecutor.initialize();
     }
 
@@ -105,40 +109,26 @@ public class UniversalConnectorController {
                 .orElseThrow(() -> new RuntimeException("No connector for " + req.getDbType()));
         
         TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), req.getTable());
-        AtomicInteger completedTnx = new AtomicInteger(0);
-        List<Future<?>> futures = new ArrayList<>();
+        int totalRows = 0;
 
         if (req.getTopic() != null) {
             kafkaServices.computeIfAbsent(req.getTopic(), k -> new KafkaService());
         }
 
-        while (completedTnx.get() < tnx) {
-            futures.add(taskExecutor.submit(() -> {
-                if (completedTnx.get() >= tnx) return;
-
-                List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
-                if (req.getTopic() != null) {
-                    KafkaService kafkaService = kafkaServices.get(req.getTopic());
-                    kafkaService.sendTableData(req.getTopic(), req.getTable(), req.getSchema(), rows, 
-                        req.getKafkaConfig().toMap());
-                } else {
-                    connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
-                }
-                completedTnx.incrementAndGet();
-            }));
-        }
-
-        // Wait for all tasks to complete
-        for (Future<?> future : futures) {
-            try {
-                future.get();
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error("Error during data insertion", e);
-                Thread.currentThread().interrupt();
+        // Process each transaction sequentially
+        for (int i = 0; i < tnx; i++) {
+            List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
+            if (req.getTopic() != null) {
+                KafkaService kafkaService = kafkaServices.get(req.getTopic());
+                kafkaService.sendTableData(req.getTopic(), req.getTable(), req.getSchema(), rows, 
+                    req.getKafkaConfig().toMap());
+            } else {
+                connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
             }
+            totalRows += row_count;
         }
 
-        return "Inserted " + tnx + " transaction(s) with " + row_count + " dummy rows into "
+        return "Inserted " + tnx + " transaction(s) with " + totalRows + " dummy rows into "
                 + metadata.getTableName();
     }
 

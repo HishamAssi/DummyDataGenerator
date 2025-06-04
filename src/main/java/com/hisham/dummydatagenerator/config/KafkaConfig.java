@@ -12,7 +12,6 @@
  */
 package com.hisham.dummydatagenerator.config;
 
-import com.hisham.dummydatagenerator.dto.KafkaProducerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;

@@ -13,7 +13,7 @@
 package com.hisham.dummydatagenerator.service;
 
 import com.hisham.dummydatagenerator.config.KafkaConfig;
-import com.hisham.dummydatagenerator.dto.KafkaProducerConfig;
+import com.hisham.dummydatagenerator.config.KafkaProducerConfig;
 import com.hisham.dummydatagenerator.dto.TableDataMessage;
 
 import java.util.ArrayList;
@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.beans.factory.annotation.Value;
 import org.apache.kafka.clients.producer.KafkaProducer;

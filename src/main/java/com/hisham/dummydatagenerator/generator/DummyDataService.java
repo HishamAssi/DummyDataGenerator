@@ -22,9 +22,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.stereotype.Service;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -51,17 +51,21 @@ public class DummyDataService {
     @Value("${dummy.generator.thread-pool.size:10}")
     private int threadPoolSize;
 
-    private final ThreadPoolTaskExecutor taskExecutor;
+    private ThreadPoolTaskExecutor taskExecutor;
     private final ConcurrentHashMap<String, Set<Object>> primaryKeyCache;
 
     public DummyDataService() {
+        this.primaryKeyCache = new ConcurrentHashMap<>();
+    }
+
+    @PostConstruct
+    public void initialize() {
         this.taskExecutor = new ThreadPoolTaskExecutor();
         this.taskExecutor.setCorePoolSize(threadPoolSize);
         this.taskExecutor.setMaxPoolSize(threadPoolSize);
         this.taskExecutor.setQueueCapacity(100);
         this.taskExecutor.setThreadNamePrefix("DataGenerator-");
         this.taskExecutor.initialize();
-        this.primaryKeyCache = new ConcurrentHashMap<>();
     }
 
     /**
@@ -77,7 +81,6 @@ public class DummyDataService {
     public List<Map<String, Object>> generateRows(DataSource dataSource, TableMetadata metadata, int rowCount,
                                                   String schema) {
         logger.info("Generating {} rows for table {}", rowCount, metadata.getTableName());
-        logger.debug("Row schema: {}", metadata.getColumns());
 
         String pkColumn = metadata.getColumns().stream()
                 .filter(ColumnMetadata::isPrimaryKey)

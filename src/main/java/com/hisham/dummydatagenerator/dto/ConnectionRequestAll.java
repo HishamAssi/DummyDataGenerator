@@ -1,6 +1,7 @@
 package com.hisham.dummydatagenerator.dto;
 
 import java.util.List;
+import com.hisham.dummydatagenerator.config.KafkaProducerConfig;
 
 public class ConnectionRequestAll {
     private String dbType;

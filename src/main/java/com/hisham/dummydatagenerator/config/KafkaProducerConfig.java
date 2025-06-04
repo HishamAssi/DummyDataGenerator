@@ -14,6 +14,9 @@ public class KafkaProducerConfig {
     private Integer batchSize;
     private Integer lingerMs;
     private Integer bufferMemory;
+    private String keySerializer;
+    private String valueSerializer;
+    private Map<String, String> additionalProperties;
 
     public KafkaProducerConfig() {
         // Default values
@@ -23,6 +26,7 @@ public class KafkaProducerConfig {
         this.batchSize = 16384;
         this.lingerMs = 1;
         this.bufferMemory = 33554432;
+        this.additionalProperties = new HashMap<>();
     }
 
     /**
@@ -38,6 +42,7 @@ public class KafkaProducerConfig {
         config.put("batch.size", batchSize);
         config.put("linger.ms", lingerMs);
         config.put("buffer.memory", bufferMemory);
+        config.putAll(additionalProperties);
         return config;
     }
 
@@ -88,5 +93,29 @@ public class KafkaProducerConfig {
 
     public void setBufferMemory(Integer bufferMemory) {
         this.bufferMemory = bufferMemory;
+    }
+
+    public Map<String, String> getAdditionalProperties() {
+        return additionalProperties;
+    }
+
+    public String getKeySerializer() {
+        return keySerializer;
+    }
+
+    public void setKeySerializer(String keySerializer) {
+        this.keySerializer = keySerializer;
+    }
+
+    public String getValueSerializer() {
+        return valueSerializer;
+    }
+
+    public void setValueSerializer(String valueSerializer) {
+        this.valueSerializer = valueSerializer;
+    }
+
+    public void setAdditionalProperties(Map<String, String> additionalProperties) {
+        this.additionalProperties = additionalProperties;
     }
 } 

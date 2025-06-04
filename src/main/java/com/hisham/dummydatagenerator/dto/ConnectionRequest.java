@@ -1,5 +1,7 @@
 package com.hisham.dummydatagenerator.dto;
 
+import com.hisham.dummydatagenerator.config.KafkaProducerConfig;
+
 public class ConnectionRequest {
     private String jdbcUrl;
     private String username;
