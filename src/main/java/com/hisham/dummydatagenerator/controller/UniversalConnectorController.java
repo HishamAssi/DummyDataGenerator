@@ -18,8 +18,6 @@ import javax.sql.DataSource;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-import org.springframework.http.HttpStatus;
 
 /**
  * UniversalConnectorController is a REST controller that provides endpoints for database operations
