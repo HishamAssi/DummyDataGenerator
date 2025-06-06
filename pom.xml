@@ -89,6 +89,11 @@
     		<groupId>org.springframework.kafka</groupId>
     		<artifactId>spring-kafka</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>net.sf.jt400</groupId>
+			<artifactId>jt400</artifactId>
+			<version>11.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
