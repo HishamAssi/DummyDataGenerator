@@ -6,15 +6,19 @@ import com.hisham.dummydatagenerator.dto.ConnectionRequest;
 import com.hisham.dummydatagenerator.dto.ConnectionRequestAll;
 import com.hisham.dummydatagenerator.generator.DummyDataService;
 import com.hisham.dummydatagenerator.schema.TableMetadata;
+import com.hisham.dummydatagenerator.service.CSVService;
 import com.hisham.dummydatagenerator.service.KafkaService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,10 +39,16 @@ public class UniversalConnectorController {
 
     private static final Logger logger = LoggerFactory.getLogger(UniversalConnectorController.class);
 
+    @Autowired
+    @Lazy
     private KafkaService kafkaService;
 
     @Autowired
     private DummyDataService dummyDataService;
+
+    @Autowired
+    @Lazy
+    private CSVService csvService;
 
     @Autowired
     private List<DatabaseConnector> connectors;
@@ -71,40 +81,46 @@ public class UniversalConnectorController {
      * @param row_count Number of rows to generate per transaction (default: 100)
      * @param tnx Number of transactions to perform (default: 1)
      * @param req ConnectionRequest containing database connection details and optional Kafka configuration
-     * @return String message indicating the number of rows and transactions inserted
+     * @return ResponseEntity containing a map of results with the number of rows inserted and the message
      * @throws RuntimeException if no suitable connector is found for the specified database type
      */
     @PostMapping("/insert")
-    public String insert(@RequestParam(defaultValue = "100") int row_count,
-                        @RequestParam(defaultValue = "1") int tnx,
-                        @RequestBody ConnectionRequest req) {
+    public ResponseEntity<?> insert(@RequestParam(defaultValue = "100") int row_count,
+                                  @RequestParam(defaultValue = "1") int tnx,
+                                  @RequestBody ConnectionRequest req) {
         DataSource ds = DatasourceProvider.createDataSource(req.getJdbcUrl(), req.getUsername(), req.getPassword());
         
-        // Find appropriate connector for the database type
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No connector for " + req.getDbType()));
         
-        // Get table metadata and generate data for specified number of transactions
         TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), req.getTable());
-        int tnx_i = 0;
-        if (req.getTopic() != null) {
-            kafkaService = new KafkaService();
-        }
-        while (tnx_i < tnx) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        int totalRows = 0;
+
+        for (int tnx_i = 0; tnx_i < tnx; tnx_i++) {
             List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, row_count, req.getSchema());
-            if (kafkaService != null) {
-                // Send to Kafka if topic is specified and Kafka service is available
+            
+            if (req.getTopic() != null) {
                 kafkaService.sendTableData(req.getTopic(), req.getTable(), req.getSchema(), rows, req.getKafkaConfig());
+            } else if (req.isWriteToCSV()) {
+                try {
+                    Path csvPath = csvService.writeToCSV(req.getSchema(), req.getTable(), rows);
+                    response.put("csvFile", csvPath.toString());
+                } catch (IOException e) {
+                    logger.error("Failed to write CSV file", e);
+                    return ResponseEntity.internalServerError().body("Failed to write CSV file: " + e.getMessage());
+                }
             } else {
-                // Insert into database if no Kafka topic specified or Kafka service not available
                 connector.insertRows(ds, req.getSchema(), req.getTable(), metadata, rows);
             }
-            tnx_i++;
+            totalRows += rows.size();
         }
-        return "Inserted " + tnx + " transaction(s) with " + row_count + " dummy rows into "
-                + metadata.getTableName();
+
+        response.put("message", "Successfully processed " + tnx + " transaction(s)");
+        response.put("totalRows", totalRows);
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -117,65 +133,60 @@ public class UniversalConnectorController {
      * @throws RuntimeException if no suitable connector is found for the specified database type
      */
     @PostMapping("/insert-all")
-    public ResponseEntity<Map<String, Object>> insertIntoAllTables(@RequestBody ConnectionRequestAll req) {
+    public ResponseEntity<?> insertIntoAllTables(@RequestBody ConnectionRequestAll req) {
         DataSource ds = DatasourceProvider.createDataSource(
                 req.getJdbcUrl(), req.getUsername(), req.getPassword());
         
-        // Find appropriate connector for the database type
         DatabaseConnector connector = connectors.stream()
                 .filter(c -> c.supports(req.getDbType()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No connector for: " + req.getDbType()));
         
-        // Get list of tables to process
-        List<String> allTables;
-        if (req.getIncludeTables() != null) {
-            allTables = req.getIncludeTables();
-        } else {
-            allTables = connector.getAllTableNames(ds, req.getSchema());
-        }
+        List<String> allTables = req.getIncludeTables() != null ? req.getIncludeTables() 
+                : connector.getAllTableNames(ds, req.getSchema());
         List<String> toIgnore = req.getIgnoreTables() != null ? req.getIgnoreTables() : List.of();
-        Map<String, Integer> resultMap = new LinkedHashMap<>();
+        Map<String, Object> resultMap = new LinkedHashMap<>();
+        Map<String, String> csvFiles = new LinkedHashMap<>();
 
-        if (req.getTopic() != null) {
-            kafkaService = new KafkaService();
-        }
-
-        // Process each table
         for (String table : allTables) {
             if (toIgnore.contains(table)) {
-                logger.debug("[SKIP] Ignoring table: " + table);
+                logger.debug("[SKIP] Ignoring table: {}", table);
                 continue;
             }
 
             try {
-                // Generate and insert data for each table
                 TableMetadata metadata = connector.getTableMetadata(ds, req.getSchema(), table);
                 List<Map<String, Object>> rows = dummyDataService.generateRows(ds, metadata, req.getRowsPerTable(),
                         req.getSchema());
-                if (kafkaService != null) {
-                    // Send to Kafka if topic is specified and Kafka service is available
+
+                if (req.getTopic() != null) {
                     kafkaService.sendTableData(req.getTopic(), req.getSchema(), table, rows, req.getKafkaConfig());
+                } else if (req.isWriteToCSV()) {
+                    try {
+                        Path csvPath = csvService.writeToCSV(req.getSchema(), table, rows);
+                        csvFiles.put(table, csvPath.toString());
+                    } catch (IOException e) {
+                        logger.error("Failed to write CSV file for table: {}", table, e);
+                        resultMap.put(table, Map.of("status", "error", "message", e.getMessage()));
+                        continue;
+                    }
                 } else {
-                    // Insert into database if no Kafka topic specified or Kafka service not available
                     connector.insertRows(ds, req.getSchema(), table, metadata, rows);
                 }
-                resultMap.put(table, req.getRowsPerTable());
+                resultMap.put(table, Map.of("status", "success", "rows", req.getRowsPerTable()));
             } catch (Exception e) {
-                if (req.getTopic() != null) {
-                    logger.error("[ERROR] Failed to insert into topic: " + req.getDbType(), e);
-                }
-                else {
-                    logger.error("[ERROR] Failed to insert into table: " + table, e);
-                }
-                resultMap.put(table, -1); // Mark as failed in results
+                logger.error("[ERROR] Failed to process table: {}", table, e);
+                resultMap.put(table, Map.of("status", "error", "message", e.getMessage()));
             }
         }
 
-        return ResponseEntity.ok(Map.of(
-                "message", "Insert complete",
-                "rowsInserted", resultMap
-        ));
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("message", "Insert complete");
+        response.put("results", resultMap);
+        if (!csvFiles.isEmpty()) {
+            response.put("csvFiles", csvFiles);
+        }
+        return ResponseEntity.ok(response);
     }
 }
 

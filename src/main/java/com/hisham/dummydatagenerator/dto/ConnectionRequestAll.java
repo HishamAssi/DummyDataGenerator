@@ -1,18 +1,23 @@
 package com.hisham.dummydatagenerator.dto;
 
+import lombok.Data;
 import java.util.List;
 
+@Data
 public class ConnectionRequestAll {
-    private String dbType;
     private String jdbcUrl;
     private String username;
     private String password;
+    private String dbType;
     private String schema;
+    private List<String> includeTables;
+    private List<String> ignoreTables;
     private int rowsPerTable;
     private String topic;
     private KafkaProducerConfig kafkaConfig;
-    private List<String> ignoreTables;
-    private List<String> includeTables;
+    private boolean writeToCSV;
+    private String csvOutputDir;
+    private Boolean includeHeader;
 
     public String getJdbcUrl() {
         return jdbcUrl;
