@@ -1,5 +1,8 @@
 package com.hisham.dummydatagenerator.dto;
 
+import lombok.Data;
+
+@Data
 public class ConnectionRequest {
     private String jdbcUrl;
     private String username;
@@ -9,6 +12,9 @@ public class ConnectionRequest {
     private String table;
     private String topic;
     private KafkaProducerConfig kafkaConfig;
+    private boolean writeToCSV;
+    private String csvOutputDir;
+    private Boolean includeHeader;
 
     // Getters and Setters
     public String getJdbcUrl() {
