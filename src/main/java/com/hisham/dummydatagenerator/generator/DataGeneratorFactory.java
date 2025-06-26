@@ -68,7 +68,8 @@ public class DataGeneratorFactory {
             case "text" -> new VarcharGenerator(textSize);
             case "numeric", "decimal" -> new NumericGenerator(column.getColumnSize(), column.getDecimalDigits());
             case "int2" -> new IntegerGenerator(-smallInt, smallInt);
-            case "int4", "money", "int"  -> new IntegerGenerator(-normInt, normInt);
+            case "int4", "int"  -> new IntegerGenerator(-normInt, normInt);
+            case "money" -> new MoneyGenerator();
             case "int8" -> new BigIntGenerator();
             case "timestamptz" -> new TimestampGenerator();
             case "timestamp" -> new TimestampGenerator();
