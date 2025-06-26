@@ -43,8 +43,6 @@ public class DB2iConnector implements DatabaseConnector {
         try (Connection conn = dataSource.getConnection()) {
             logger.debug("Fetching metadata for table {}.{}", schema, tableName);
 
-            DatabaseMetaData meta = conn.getMetaData();
-
             // Get primary keys using DB2 on i specific catalog
             logger.debug("Retrieving primary keys for table {}.{}", schema, tableName);
             String pkQuery = """
