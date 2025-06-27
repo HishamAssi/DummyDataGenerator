@@ -49,8 +49,7 @@ public class DB2iConnector implements DatabaseConnector {
                 SELECT COLUMN_NAME 
                 FROM QSYS2.SYSKEYCST 
                 WHERE TABLE_SCHEMA = ? 
-                AND TABLE_NAME = ? 
-                AND CONSTRAINT_TYPE = 'P'
+                AND TABLE_NAME = ?
                 """;
             
             try (PreparedStatement pkStmt = conn.prepareStatement(pkQuery)) {
@@ -60,14 +59,16 @@ public class DB2iConnector implements DatabaseConnector {
                 while (pkSet.next()) {
                     primaryKeys.add(pkSet.getString("COLUMN_NAME"));
                 }
+            } catch (SQLException e) {  
+                logger.warn("Error retrieving primary keys for table {}.{}", schema, tableName, e.getMessage());
             }
 
             // Get column information using DB2 on i specific catalog
             logger.debug("Retrieving column information for table {}.{}", schema, tableName);
             String colQuery = """
-                SELECT COLUMN_NAME, DATA_TYPE, COLUMN_SIZE, DECIMAL_DIGITS, 
+                SELECT COLUMN_NAME, DATA_TYPE, LENGTH, NUMERIC_SCALE, 
                        IS_NULLABLE, COLUMN_DEFAULT
-                FROM QSYS2.SYSCOLUMNS 
+                FROM QSYS2.SYSCOLUMNS
                 WHERE TABLE_SCHEMA = ? 
                 AND TABLE_NAME = ?
                 ORDER BY ORDINAL_POSITION
@@ -81,9 +82,9 @@ public class DB2iConnector implements DatabaseConnector {
                 while (cols.next()) {
                     String colName = cols.getString("COLUMN_NAME");
                     String typeName = cols.getString("DATA_TYPE");
-                    boolean nullable = "YES".equals(cols.getString("IS_NULLABLE"));
-                    int size = cols.getInt("COLUMN_SIZE");
-                    int scale = cols.getInt("DECIMAL_DIGITS");
+                    boolean nullable = "Y".equals(cols.getString("IS_NULLABLE"));
+                    int size = cols.getInt("LENGTH");
+                    int scale = cols.getInt("NUMERIC_SCALE");
 
                     ColumnMetadata column = new ColumnMetadata(
                             colName,
