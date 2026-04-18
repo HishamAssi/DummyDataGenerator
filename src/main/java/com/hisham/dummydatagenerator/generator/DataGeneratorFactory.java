@@ -99,6 +99,11 @@ public class DataGeneratorFactory {
             case "time", "timetz", "time without time zone", "time with time zone" -> new TimeGenerator();
             // JSON types
             case "json", "jsonb" -> new JsonGenerator();
+            // DB2 on i type aliases
+            case "integer" -> new IntegerGenerator(-normInt, normInt);
+            case "character" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 1);
+            case "blob" -> new ByteaGenerator();
+            case "clob" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 256);
             // Add other mappings here
             default -> () -> null;
         };

@@ -24,7 +24,7 @@ class DataGeneratorFactoryTest {
         "date, , , DateGenerator"
     })
     void testGetGeneratorForKnownTypes(String type, Integer size, Integer scale, String expectedGeneratorClass) {
-        ColumnMetadata column = new ColumnMetadata("test_column", type, true, false, size, scale);
+        ColumnMetadata column = new ColumnMetadata("test_column", type, true, false, size, scale, false);
         ColumnDataGenerator generator = DataGeneratorFactory.getGenerator(column);
         
         assertNotNull(generator);
@@ -33,7 +33,7 @@ class DataGeneratorFactoryTest {
 
     @Test
     void testGetGeneratorForUnknownType() {
-        ColumnMetadata column = new ColumnMetadata("test_column", "unknown_type", true, false, null, null);
+        ColumnMetadata column = new ColumnMetadata("test_column", "unknown_type", true, false, null, null, false);
         ColumnDataGenerator generator = DataGeneratorFactory.getGenerator(column);
         
         assertNotNull(generator);
@@ -49,7 +49,7 @@ class DataGeneratorFactoryTest {
 
     @Test
     void testGetGeneratorWithNullType() {
-        ColumnMetadata column = new ColumnMetadata("test_column", null, true, false, null, null);
+        ColumnMetadata column = new ColumnMetadata("test_column", null, true, false, null, null, false);
         ColumnDataGenerator generator = DataGeneratorFactory.getGenerator(column);
         
         assertNotNull(generator);
