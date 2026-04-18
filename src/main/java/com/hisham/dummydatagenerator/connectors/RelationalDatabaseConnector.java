@@ -68,30 +68,34 @@ public class RelationalDatabaseConnector implements DatabaseConnector {
 
             // First, get all primary keys for the table
             logger.debug("Retrieving primary keys for table {}.{}", schema, tableName);
-            ResultSet pkSet = meta.getPrimaryKeys(null, schema, tableName);
-            while (pkSet.next()) {
-                primaryKeys.add(pkSet.getString("COLUMN_NAME"));
+            try (ResultSet pkSet = meta.getPrimaryKeys(null, schema, tableName)) {
+                while (pkSet.next()) {
+                    primaryKeys.add(pkSet.getString("COLUMN_NAME"));
+                }
             }
 
             // Then, get all column information
             logger.debug("Retrieving column information for table {}.{}", schema, tableName);
-            ResultSet cols = meta.getColumns(null, schema, tableName, null);
-            while (cols.next()) {
-                String colName = cols.getString("COLUMN_NAME");
-                String typeName = cols.getString("TYPE_NAME");
-                boolean nullable = cols.getInt("NULLABLE") == DatabaseMetaData.columnNullable;
-                int size = cols.getInt("COLUMN_SIZE");
-                int scale = cols.getInt("DECIMAL_DIGITS");
+            try (ResultSet cols = meta.getColumns(null, schema, tableName, null)) {
+                while (cols.next()) {
+                    String colName = cols.getString("COLUMN_NAME");
+                    String typeName = cols.getString("TYPE_NAME");
+                    boolean nullable = cols.getInt("NULLABLE") == DatabaseMetaData.columnNullable;
+                    int size = cols.getInt("COLUMN_SIZE");
+                    int scale = cols.getInt("DECIMAL_DIGITS");
 
-                ColumnMetadata column = new ColumnMetadata(
-                        colName,
-                        typeName,
-                        nullable,
-                        primaryKeys.contains(colName),
-                        size,
-                        scale
-                );
-                columns.add(column);
+                    boolean autoIncrement = "YES".equalsIgnoreCase(cols.getString("IS_AUTOINCREMENT"));
+                    ColumnMetadata column = new ColumnMetadata(
+                            colName,
+                            typeName,
+                            nullable,
+                            primaryKeys.contains(colName),
+                            size,
+                            scale,
+                            autoIncrement
+                    );
+                    columns.add(column);
+                }
             }
 
         } catch (SQLException e) {
@@ -123,28 +127,36 @@ public class RelationalDatabaseConnector implements DatabaseConnector {
 
         try (Connection conn = dataSource.getConnection()) {
             // Prepare column names and placeholders for the SQL statement
-            List<ColumnMetadata> columns = metadata.getColumns();
+            List<ColumnMetadata> insertableColumns = metadata.getColumns().stream()
+                    .filter(col -> !col.isAutoIncrement())
+                    .toList();
             List<String> colNamesList = new ArrayList<>();
-            for (ColumnMetadata col : columns) {
-                colNamesList.add(col.getColumnName());
+            for (ColumnMetadata col : insertableColumns) {
+                colNamesList.add("\"" + col.getColumnName() + "\"");
             }
 
             String colNames = String.join(", ", colNamesList);
             String placeholders = String.join(", ", Collections.nCopies(colNamesList.size(), "?"));
-            String sql = String.format("INSERT INTO %s.%s (%s) VALUES (%s)", schema, tableName, colNames, placeholders);
+            String sql = String.format("INSERT INTO \"%s\".\"%s\" (%s) VALUES (%s)", schema, tableName, colNames, placeholders);
 
             logger.debug("Executing insert with SQL: {}", sql);
 
+            conn.setAutoCommit(false);
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 for (Map<String, Object> row : rows) {
                     // Set values for each column in the prepared statement
-                    for (int i = 0; i < columns.size(); i++) {
-                        Object value = row.get(columns.get(i).getColumnName());
+                    for (int i = 0; i < insertableColumns.size(); i++) {
+                        Object value = row.get(insertableColumns.get(i).getColumnName());
                         stmt.setObject(i + 1, value);
                     }
-                    int insertResult = stmt.executeUpdate();
-                    logger.trace("Insert completed with result code: {}", insertResult);
+                    stmt.addBatch();
                 }
+                stmt.executeBatch();
+                conn.commit();
+                logger.trace("Batch insert completed for {}.{}", schema, tableName);
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
             }
 
         } catch (SQLException e) {
@@ -167,9 +179,10 @@ public class RelationalDatabaseConnector implements DatabaseConnector {
 
         try (Connection conn = ds.getConnection()) {
             DatabaseMetaData meta = conn.getMetaData();
-            ResultSet rs = meta.getTables(null, schema, null, new String[] { "TABLE" });
-            while (rs.next()) {
-                tables.add(rs.getString("TABLE_NAME"));
+            try (ResultSet rs = meta.getTables(null, schema, null, new String[] { "TABLE" })) {
+                while (rs.next()) {
+                    tables.add(rs.getString("TABLE_NAME"));
+                }
             }
         } catch (SQLException e) {
             logger.error("Failed to fetch tables for schema: {}", schema, e);
@@ -228,9 +241,10 @@ public class RelationalDatabaseConnector implements DatabaseConnector {
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, schema);
             stmt.setString(2, tableName);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt(1) > 0;
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
             }
         }
         return false;

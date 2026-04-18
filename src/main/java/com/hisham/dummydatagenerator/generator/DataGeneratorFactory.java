@@ -76,6 +76,29 @@ public class DataGeneratorFactory {
             case "bool" -> new BooleanGenerator();
             case "bytea" -> new ByteaGenerator();
             case "date" -> new DateGenerator();
+            // SQL Server integer types
+            case "bigint" -> new BigIntGenerator();
+            case "smallint" -> new IntegerGenerator(-smallInt, smallInt);
+            case "tinyint" -> new IntegerGenerator(0, 255);
+            // SQL Server / cross-DB boolean
+            case "bit" -> new BooleanGenerator();
+            // Unicode and fixed-length strings
+            case "nvarchar", "nchar", "ntext" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 50);
+            case "char", "bpchar" -> new VarcharGenerator(column.getColumnSize() != null ? column.getColumnSize() : 1);
+            // SQL Server datetime types
+            case "datetime", "datetime2", "smalldatetime" -> new TimestampGenerator();
+            // UUID types (PostgreSQL uuid and SQL Server uniqueidentifier)
+            case "uuid", "uniqueidentifier" -> new UUIDGenerator();
+            // Binary types
+            case "varbinary", "image" -> new ByteaGenerator();
+            // Float types
+            case "float", "real", "double precision", "double" -> new FloatGenerator();
+            // Additional money type
+            case "smallmoney" -> new MoneyGenerator();
+            // PostgreSQL time types
+            case "time", "timetz", "time without time zone", "time with time zone" -> new TimeGenerator();
+            // JSON types
+            case "json", "jsonb" -> new JsonGenerator();
             // Add other mappings here
             default -> () -> null;
         };

@@ -1,5 +1,9 @@
 HELP.md
 target/
+*.class
+*.log
+unit-test.out.*
+.notes.txt
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

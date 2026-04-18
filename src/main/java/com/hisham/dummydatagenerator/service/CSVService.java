@@ -63,7 +63,13 @@ public class CSVService {
             for (Map<String, Object> row : rows) {
                 String line = row.values().stream()
                         .map(value -> value == null ? "" : value.toString())
-                        .map(value -> value.contains(",") ? "\"" + value + "\"" : value)
+                        .map(value -> {
+                            boolean needsQuoting = value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r");
+                            if (needsQuoting) {
+                                return "\"" + value.replace("\"", "\"\"") + "\"";
+                            }
+                            return value;
+                        })
                         .reduce((a, b) -> a + "," + b)
                         .orElse("");
                 writer.write(line + "\n");

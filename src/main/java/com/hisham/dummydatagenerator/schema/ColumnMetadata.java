@@ -8,15 +8,17 @@ public class ColumnMetadata {
 
     private Integer columnSize;     // for varchar, char, numeric
     private Integer decimalDigits;  // for numeric
+    private final boolean autoIncrement;
 
     public ColumnMetadata(String columnName, String dataType, boolean nullable, boolean primaryKey,
-                          Integer columnSize, Integer decimalDigits) {
+                          Integer columnSize, Integer decimalDigits, boolean autoIncrement) {
         this.columnName = columnName;
         this.dataType = dataType;
         this.nullable = nullable;
         this.primaryKey = primaryKey;
         this.columnSize = columnSize;
         this.decimalDigits = decimalDigits;
+        this.autoIncrement = autoIncrement;
     }
 
     // Getters and setters
@@ -39,5 +41,7 @@ public class ColumnMetadata {
     public Integer getColumnSize() { return columnSize; }
 
     public Integer getDecimalDigits() { return decimalDigits; }
+
+    public boolean isAutoIncrement() { return autoIncrement; }
 
 }

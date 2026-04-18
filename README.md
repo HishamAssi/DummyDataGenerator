@@ -85,11 +85,21 @@ Or in IntelliJ:
 
 Once running, Tomcat should start at `http://localhost:8080/api`
 
+## 🔐 Authentication
+
+All API endpoints require HTTP Basic authentication. Use the `admin` user configured in `application.properties` (password defaults to `secure-admin-password-2025`, override with the `ACTUATOR_PASSWORD` environment variable in production).
+
+```bash
+curl -u admin:secure-admin-password-2025 -X POST http://localhost:8080/api/universal/insert ...
+```
+
+---
+
 ## 📡 API Usage
 
 ### Universal Connector Endpoints
 
-All API requests require the following Parameters:
+All API requests require HTTP Basic authentication (see above) and the following parameters:
 
 - `jdbcUrl`: Standard jdbc url used for connecting to Database
 - `username`: Database username for the jdbcUrl
@@ -203,7 +213,7 @@ Optional Parameters for insert-all:
 
 #### Insert Response
 ```json
-"Inserted 1 transaction(s) with 100 dummy rows into your_table"
+"Successfully processed 1 transaction(s)"
 ```
 
 #### Insert All Response
@@ -217,15 +227,35 @@ Optional Parameters for insert-all:
 }
 ```
 
-## ⚙️ Data Types Supported (so far)
-SQL Type	Generator Example
-varchar	Random name string
-text	Random UUID-style string
-int4/int	Random integer [1, 10000]
-date	Random date (2000–2022)
+## ⚙️ Data Types Supported
+
+| SQL Type(s) | Databases | Notes |
+|-------------|-----------|-------|
+| `varchar`, `nvarchar`, `nchar`, `ntext`, `char` | Both | Random string up to column size |
+| `text` | Both | Random string |
+| `int`, `int4`, `integer` | Both | Random integer |
+| `bigint`, `int8` | Both | Random big integer |
+| `smallint`, `int2` | Both | Random small integer |
+| `tinyint` | SQL Server | Random integer 0–255 |
+| `numeric`, `decimal` | Both | Random decimal with precision/scale |
+| `float`, `real`, `double precision` | Both | Random floating point |
+| `money`, `smallmoney` | Both | Random monetary value |
+| `bit` | SQL Server | Random boolean (0/1) |
+| `bool` | PostgreSQL | Random boolean |
+| `date` | Both | Random date |
+| `timestamp`, `timestamptz` | PostgreSQL | Random timestamp ±365 days |
+| `datetime`, `datetime2`, `smalldatetime` | SQL Server | Random timestamp ±365 days |
+| `time`, `timetz` | PostgreSQL | Random time |
+| `uuid` | PostgreSQL | Random UUID |
+| `uniqueidentifier` | SQL Server | Random UUID |
+| `bytea` | PostgreSQL | Random 16 bytes |
+| `varbinary`, `image` | SQL Server | Random 16 bytes |
+| `json`, `jsonb` | PostgreSQL | Minimal JSON object |
+
+Auto-increment / `IDENTITY` / `SERIAL` columns are automatically detected and excluded from inserts.
 
 ## 🔧 Roadmap
- CSV/JSON export instead of DB insert
+ ✅ CSV export instead of DB insert
 
  UI frontend with React
 
