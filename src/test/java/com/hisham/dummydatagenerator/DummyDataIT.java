@@ -86,8 +86,10 @@ public class DummyDataIT {
         assertEquals(5, metadata.getColumns().size());
 
         // 3. Insert data
-        String result = universalConnectorController.insert(10, 1, request);
-        assertTrue(result.contains("Inserted 1 transaction(s) with 10 dummy rows"));
+        ResponseEntity<?> response = universalConnectorController.insert(10, 1, request);
+        Object body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.toString().contains("Successfully processed"));
 
         // 4. Verify data
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
@@ -134,8 +136,9 @@ public class DummyDataIT {
         request.setRowsPerTable(5);
 
         // Insert data into all tables
-        ResponseEntity<Map<String, Object>> result = universalConnectorController.insertIntoAllTables(request);
-        assertEquals(result.getBody().get("message"), TEST_INSERTALL_OUTPUT_STRING);
+        ResponseEntity<?> result = universalConnectorController.insertIntoAllTables(request);
+        assertNotNull(result.getBody());
+        assertTrue(result.getBody().toString().contains(TEST_INSERTALL_OUTPUT_STRING));
 
         // Verify data in both tables
         int count1 = jdbcTemplate.queryForObject(

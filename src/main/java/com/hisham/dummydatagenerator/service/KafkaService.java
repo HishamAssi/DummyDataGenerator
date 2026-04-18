@@ -22,16 +22,18 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
 
 /**
  * Service for Kafka operations.
  * Handles the production and sending of messages to Kafka topics.
  */
+@Service
 public class KafkaService {
     private static final Logger logger = LoggerFactory.getLogger(KafkaService.class);
 
     private final KafkaConfig kafkaConfig;
-    private KafkaTemplate<String, Object> kafkaTemplate;
+    private volatile KafkaTemplate<String, Object> kafkaTemplate;
 
     /**
      * Constructs a new KafkaService instance.
@@ -53,13 +55,22 @@ public class KafkaService {
      */
     public void sendTableData(String topic, String tableName, String schema, List<Map<String, Object>> rows, KafkaProducerConfig producerConfig) {
         if (kafkaTemplate == null) {
-            kafkaTemplate = kafkaConfig.createKafkaTemplate(producerConfig);
+            synchronized (this) {
+                if (kafkaTemplate == null) {
+                    kafkaTemplate = kafkaConfig.createKafkaTemplate(producerConfig);
+                }
+            }
         }
 
         for (Map<String, Object> row : rows) {
             TableDataMessage message = new TableDataMessage(tableName, schema, row);
             logger.info("Sending data to Kafka for table {}.{}", schema, tableName);
-            kafkaTemplate.send(topic, tableName, message);
+            try {
+                kafkaTemplate.send(topic, tableName, message).get();
+            } catch (Exception e) {
+                logger.error("Failed to send message to Kafka topic {}: {}", topic, e.getMessage(), e);
+                throw new RuntimeException("Kafka send failed for topic: " + topic, e);
+            }
         }
     }
 }

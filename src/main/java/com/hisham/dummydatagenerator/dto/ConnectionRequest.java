@@ -1,5 +1,8 @@
 package com.hisham.dummydatagenerator.dto;
 
+import lombok.Data;
+
+@Data
 public class ConnectionRequest {
     private String jdbcUrl;
     private String username;
@@ -9,6 +12,9 @@ public class ConnectionRequest {
     private String table;
     private String topic;
     private KafkaProducerConfig kafkaConfig;
+    private boolean writeToCSV;
+    private String csvOutputDir;
+    private Boolean includeHeader;
 
     // Getters and Setters
     public String getJdbcUrl() {
@@ -73,6 +79,30 @@ public class ConnectionRequest {
 
     public void setKafkaConfig(KafkaProducerConfig kafkaConfig) {
         this.kafkaConfig = kafkaConfig;
+    }
+
+    public boolean isWriteToCSV() {
+        return writeToCSV;
+    }
+
+    public void setWriteToCSV(boolean writeToCSV) {
+        this.writeToCSV = writeToCSV;
+    }
+
+    public String getCsvOutputDir() {
+        return csvOutputDir;
+    }
+
+    public void setCsvOutputDir(String csvOutputDir) {
+        this.csvOutputDir = csvOutputDir;
+    }
+
+    public Boolean getIncludeHeader() {
+        return includeHeader;
+    }
+
+    public void setIncludeHeader(Boolean includeHeader) {
+        this.includeHeader = includeHeader;
     }
 }
 

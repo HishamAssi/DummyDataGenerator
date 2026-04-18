@@ -14,7 +14,7 @@ public class MoneyGenerator implements ColumnDataGenerator {
      */
     @Override
     public Object generate() {
-        return "$" + BigDecimal.valueOf(ThreadLocalRandom.current().nextDouble(10, 500)).setScale(2, RoundingMode.HALF_UP);
+        return BigDecimal.valueOf(ThreadLocalRandom.current().nextDouble(10, 500)).setScale(2, RoundingMode.HALF_UP);
     }
 }
 

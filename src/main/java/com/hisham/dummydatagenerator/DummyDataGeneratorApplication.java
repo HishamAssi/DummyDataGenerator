@@ -41,7 +41,7 @@ public class DummyDataGeneratorApplication {
 	 * This method is called after the application context is initialized.
 	 */
 	@PostConstruct
-	public static void printStartupVersion() {
+	public void printStartupVersion() {
 		System.out.println("=== DummyDataGenerator v0.1 Booted at " + LocalDateTime.now() + " ===");
 	}
 
